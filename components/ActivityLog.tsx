@@ -1,6 +1,7 @@
 "use client";
 import { useStore } from "@/lib/store";
 import type { LogEntry } from "@/lib/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const TONE: Record<LogEntry["kind"], string> = {
   complete: "var(--success)",
@@ -28,46 +29,38 @@ export default function ActivityLog() {
   if (!state) return null;
 
   return (
-    <div className="card" style={{ padding: 20 }}>
-      <div className="row between" style={{ marginBottom: 14 }}>
-        <span className="title-sm">Activity Log</span>
-        <span className="caption mono">{state.player.totalCompleted} done</span>
-      </div>
-      <ul className="log">
-        {state.log.map((e) => (
-          <li key={e.id}>
-            <span className="dot" style={{ background: TONE[e.kind] }} />
-            <div className="col" style={{ gap: 2 }}>
-              <span className="body-sm">{e.text}</span>
-              <span className="caption">{ago(e.ts)}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <style jsx>{`
-        .log {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          max-height: 460px;
-          overflow-y: auto;
-        }
-        .log li {
-          display: flex;
-          gap: 10px;
-          align-items: flex-start;
-        }
-        .dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          margin-top: 6px;
-          flex-shrink: 0;
-        }
-      `}</style>
-    </div>
+    // The card takes the whole tab and scrolls its own list, so its heading and
+    // the entry count stay put while you read back.
+    <Card size="sm" className="min-h-0 flex-1">
+      <CardHeader className="grid-cols-[1fr_auto] items-center">
+        <CardTitle>Story</CardTitle>
+        <span className="text-xs text-muted-foreground">
+          {state.player.totalCompleted} done
+        </span>
+      </CardHeader>
+      <CardContent className="min-h-0 flex-1 overflow-y-auto">
+        {state.log.length === 0 ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">
+            Nothing has happened yet. Complete a quest to start your story.
+          </p>
+        ) : (
+          <ul className="flex list-none flex-col gap-3">
+            {state.log.map((e) => (
+              <li key={e.id} className="flex items-start gap-2.5">
+                <span
+                  className="mt-1.5 size-2 shrink-0"
+                  style={{ background: TONE[e.kind] }}
+                  aria-hidden
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm leading-snug">{e.text}</span>
+                  <span className="text-xs text-muted-foreground">{ago(e.ts)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

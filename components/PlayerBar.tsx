@@ -1,149 +1,98 @@
 "use client";
-import { useState } from "react";
 import { useStore, shopItem } from "@/lib/store";
 import { xpToNext } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+/** XP and HP bars are game chrome, not form progress — kept as plain bars so
+ *  the fill color and chunky outline stay under direct control. */
+function StatBar({
+  label,
+  value,
+  max,
+  color,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  color: string;
+}) {
+  const pct = Math.min(100, max > 0 ? (value / max) * 100 : 0);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-pixel w-8 shrink-0 text-[11px] tracking-widest text-foreground">
+        {label}
+      </span>
+      <div className="h-3 flex-1 border-[3px] border-foreground bg-card">
+        <span className="block h-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums">
+        {value}/{max}
+      </span>
+    </div>
+  );
+}
 
 export default function PlayerBar() {
-  const { state, reset, logout } = useStore();
-  // Reset asks for confirmation inline. Not window.confirm(): embedded
-  // webviews block it, and an OS dialog breaks the retro look anyway.
-  const [confirmingReset, setConfirmingReset] = useState(false);
+  const { state, logout } = useStore();
   if (!state) return null;
   const p = state.player;
-  const need = xpToNext(p.level);
-  const xpPct = Math.min(100, (p.xp / need) * 100);
-  const hpPct = Math.min(100, (p.hp / p.maxHp) * 100);
   const skin = shopItem(p.equippedSkin);
+  const hpPct = (p.hp / p.maxHp) * 100;
 
   return (
-    <div className="pbar">
-      <div className="container row between" style={{ gap: 16, minHeight: 68, flexWrap: "wrap" }}>
-        {/* Avatar + identity */}
-        <div className="row" style={{ gap: 14 }}>
-          <div className="avatar" aria-hidden>
-            {skin?.glyph ?? "🧑‍🚀"}
-          </div>
-          <div className="col" style={{ gap: 2 }}>
-            <div className="row" style={{ gap: 8 }}>
-              <strong style={{ fontWeight: 600 }}>{p.nickname}</strong>
-              <span className="badge">Lv.{p.level}</span>
-            </div>
-            <span className="caption">{p.streak > 0 ? `🔥 ${p.streak}-day streak` : "Let's get started today"}</span>
-          </div>
-        </div>
+    <div className="flex flex-col gap-2 px-4 py-2.5">
+      {/* Identity — tapping the profile opens the account menu, which keeps
+          the sign-out control out of the permanently pinned header. */}
+      <div className="flex items-center gap-2.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex min-w-0 items-center gap-2.5 text-left">
+            <span
+              className="grid size-9 shrink-0 place-items-center border-[3px] border-foreground bg-card text-xl"
+              aria-hidden
+            >
+              {skin?.glyph ?? "🧑‍🚀"}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-1.5">
+                <strong className="truncate text-sm font-semibold">{p.nickname}</strong>
+                <Badge variant="secondary" className="shrink-0 text-[10px]">
+                  Lv.{p.level}
+                </Badge>
+              </span>
+              <span className="truncate text-[10px] text-muted-foreground">
+                {p.streak > 0 ? `🔥 ${p.streak}-day streak` : "Let's get started today"}
+              </span>
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {/* XP bar */}
-        <div className="col grow" style={{ minWidth: 180, maxWidth: 320, gap: 6 }}>
-          <div className="row between">
-            <span className="caption-upper" style={{ color: "var(--muted)" }}>
-              XP
-            </span>
-            <span className="caption mono">
-              {p.xp} / {need}
-            </span>
-          </div>
-          <div className="bar">
-            <span style={{ width: `${xpPct}%`, background: "var(--xp)" }} />
-          </div>
-        </div>
-
-        {/* HP bar */}
-        <div className="col" style={{ minWidth: 150, maxWidth: 240, flex: 1, gap: 6 }}>
-          <div className="row between">
-            <span className="caption-upper" style={{ color: "var(--muted)" }}>
-              HP
-            </span>
-            <span className="caption mono">
-              {p.hp} / {p.maxHp}
-            </span>
-          </div>
-          <div className="bar">
-            <span style={{ width: `${hpPct}%`, background: hpPct < 30 ? "var(--error)" : "var(--hp)" }} />
-          </div>
-        </div>
-
-        {/* Gold */}
-        <div className="gold-chip" title="Gold">
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 border-[3px] border-foreground bg-card px-2 py-1">
           <span aria-hidden>🪙</span>
-          <span className="mono" style={{ fontWeight: 600 }}>
+          <span className="text-xs font-semibold tabular-nums">
             {p.gold.toLocaleString()}
           </span>
-        </div>
-
-        <div className="row" style={{ gap: 4 }}>
-          {confirmingReset ? (
-            <>
-              <span className="caption" style={{ marginRight: 4 }}>
-                Delete your save?
-              </span>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setConfirmingReset(false);
-                  reset();
-                }}
-              >
-                Yes, start over
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setConfirmingReset(false)}
-                autoFocus
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary btn-sm" onClick={logout} title="Log out (save is kept)">
-                Log out
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setConfirmingReset(true)}
-                title="New game (deletes save)"
-              >
-                ↺
-              </button>
-            </>
-          )}
-        </div>
+        </span>
       </div>
 
-      <style jsx>{`
-        .pbar {
-          position: sticky;
-          top: 0;
-          z-index: 30;
-          background: rgba(247, 247, 244, 0.85);
-          backdrop-filter: saturate(1.4) blur(8px);
-          border-bottom: 1px solid var(--hairline);
-          padding: 8px 0;
-        }
-        .avatar {
-          width: 46px;
-          height: 46px;
-          border-radius: var(--r-lg);
-          background: var(--surface-card);
-          border: 1px solid var(--hairline);
-          display: grid;
-          place-items: center;
-          font-size: 26px;
-        }
-        .gold-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: var(--surface-card);
-          border: 1px solid var(--hairline);
-          border-radius: var(--r-pill);
-          padding: 8px 14px;
-          color: var(--gold);
-        }
-        .gold-chip span:last-child {
-          color: var(--ink);
-        }
-      `}</style>
+      {/* Stats */}
+      <div className="flex flex-col gap-1">
+        <StatBar label="XP" value={p.xp} max={xpToNext(p.level)} color="var(--xp)" />
+        <StatBar
+          label="HP"
+          value={p.hp}
+          max={p.maxHp}
+          color={hpPct < 30 ? "var(--error)" : "var(--hp)"}
+        />
+      </div>
     </div>
   );
 }

@@ -184,10 +184,45 @@ function sameQuest(a: Quest, b: Quest): boolean {
   );
 }
 
+// ---- Transient failures ---------------------------------------------------
+
+/**
+ * Right after sign-in the access token is only seconds old. If the PostgREST
+ * node's clock trails the auth server's by even a moment, it reads the token's
+ * `iat` as being in the future and rejects it with PGRST303 — which looks to
+ * the user like "login did nothing". Waiting briefly makes the token old
+ * enough to pass, so these are worth retrying rather than surfacing.
+ */
+function isTransient(err: unknown): boolean {
+  const e = err as { code?: string; status?: number; message?: string } | null;
+  if (!e) return false;
+  if (e.code === "PGRST303" || e.code === "PGRST301") return true;
+  if (typeof e.status === "number" && e.status >= 500) return true;
+  return typeof e.message === "string" && /fetch|network/i.test(e.message);
+}
+
+async function withRetry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await run();
+    } catch (err) {
+      lastError = err;
+      if (!isTransient(err) || attempt === attempts - 1) throw err;
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 // ---- Queries --------------------------------------------------------------
 
 /** Null means the account has no save yet — the caller should ask for a nickname. */
-export async function loadGameState(userId: string): Promise<GameState | null> {
+export function loadGameState(userId: string): Promise<GameState | null> {
+  return withRetry(() => loadGameStateOnce(userId));
+}
+
+async function loadGameStateOnce(userId: string): Promise<GameState | null> {
   const supabase = createClient();
   if (!supabase) return null;
 

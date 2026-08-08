@@ -1,220 +1,102 @@
 "use client";
-import { useStore, shopItem } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { GTD, GTD_ORDER } from "@/lib/constants";
+import { questsForRegion } from "@/lib/game";
 import type { GtdCategory } from "@/lib/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { CategoryGlyph, CategoryLabel } from "./CategoryTag";
+import { cn } from "@/lib/utils";
 
-export default function MapView({ onGoQuests }: { onGoQuests: () => void }) {
+export default function MapView({
+  onSelectCategory,
+}: {
+  onSelectCategory: (cat: GtdCategory) => void;
+}) {
   const { state } = useStore();
   if (!state) return null;
 
-  const counts = (cat: GtdCategory) =>
-    state.quests.filter((q) => q.category === cat && q.status === "todo").length;
+  const counts = (cat: GtdCategory) => questsForRegion(state.quests, cat).length;
 
   // A region is "urgent" (colored) when it belongs to an urgent GTD zone and
   // currently holds work — per PRD: Next Action / Calendar light up when there's
   // something to do right now.
   const isUrgent = (cat: GtdCategory) => GTD[cat].urgentByDefault && counts(cat) > 0;
-  const anyUrgent = GTD_ORDER.some(isUrgent);
-  const skin = shopItem(state.player.equippedSkin);
 
   return (
-    <div className="col" style={{ gap: 16 }}>
-      <div className="row between wrap" style={{ gap: 12 }}>
-        <div className="col" style={{ gap: 4 }}>
-          <h2 className="display-sm" style={{ margin: 0 }}>
-            Continent of Adventure
-          </h2>
-          <p className="caption" style={{ margin: 0 }}>
-            Usually black &amp; white. Regions with <b style={{ color: "var(--ink)" }}>something to do now</b> light up in color.
-          </p>
-        </div>
-        <button className="btn btn-secondary btn-sm" onClick={onGoQuests}>
-          Go to Quests →
-        </button>
-      </div>
+    // The heading lives in the page so it can sit above the streak card.
+    <div className="flex flex-col gap-4">
+      <Card size="sm">
+        <CardContent>
+          {/* Two columns at handset width — three squeezes the region labels
+              onto three lines each. */}
+          <div className="relative grid grid-cols-2 gap-2.5">
+            {GTD_ORDER.map((cat) => {
+              const n = counts(cat);
+              const urgent = isUrgent(cat);
+              const meta = GTD[cat];
+              return (
+                <button
+                  key={cat}
+                  onClick={() => onSelectCategory(cat)}
+                  className={cn(
+                    "relative min-h-24 overflow-hidden border-[3px] border-foreground p-2.5 text-left transition-[scale] duration-100 ease-out outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-reduce:transition-none",
+                    urgent
+                      ? "text-foreground"
+                      : n > 0
+                        ? "bg-[#eceae4] text-foreground grayscale-[0.75]"
+                        : "bg-[#eceae4] text-[#8a887f] grayscale",
+                  )}
+                  style={
+                    urgent
+                      ? { background: `color-mix(in srgb, ${meta.color} 30%, #fff)` }
+                      : undefined
+                  }
+                >
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="font-pixel text-[9px] tracking-widest">
+                      {meta.short}
+                    </span>
+                    {n > 0 && (
+                      <span
+                        className={cn(
+                          "grid h-5 min-w-5 place-items-center px-1 text-[11px] font-bold",
+                          urgent
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-foreground text-canvas",
+                        )}
+                      >
+                        {n}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-semibold">{meta.label}</div>
+                  <CategoryGlyph
+                    category={cat}
+                    className="absolute right-1 bottom-0.5 text-3xl opacity-50"
+                  />
+                  {urgent && (
+                    <span
+                      className="absolute top-2 right-2 size-2.5 animate-[beacon_1.4s_infinite] bg-primary"
+                      aria-hidden
+                    />
+                  )}
+                </button>
+              );
+            })}
 
-      <div className={`map ${anyUrgent ? "map-alert" : ""}`}>
-        <div className="map-grid">
-          {GTD_ORDER.map((cat) => {
-            const n = counts(cat);
-            const urgent = isUrgent(cat);
-            const meta = GTD[cat];
-            return (
-              <button
-                key={cat}
-                className={`region ${urgent ? "region-on" : n > 0 ? "region-dim" : ""}`}
-                onClick={onGoQuests}
-                style={urgent ? ({ ["--rc" as string]: meta.color } as React.CSSProperties) : undefined}
-              >
-                <div className="region-head row between">
-                  <span className="caption-upper">{meta.short}</span>
-                  {n > 0 && <span className="count">{n}</span>}
-                </div>
-                <div className="region-name">{meta.label}</div>
-                <div className="region-terrain" aria-hidden>
-                  {TERRAIN[cat]}
-                </div>
-                {urgent && <span className="beacon" aria-hidden />}
-              </button>
-            );
-          })}
-
-          {/* wandering hero sits in the most urgent / most populated region */}
-          <div className="hero-token" aria-hidden>
-            {skin?.glyph ?? "🧑‍🚀"}
           </div>
-        </div>
 
-        <div className="map-legend row wrap">
-          {GTD_ORDER.map((cat) => (
-            <span key={cat} className="row" style={{ gap: 6 }}>
-              <span className="lg-dot" style={{ background: GTD[cat].color }} />
-              <span className="caption">{GTD[cat].label}</span>
-            </span>
-          ))}
-        </div>
-      </div>
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 border-t-[3px] border-foreground pt-3">
+            {GTD_ORDER.map((cat) => (
+              <span key={cat} className="flex items-center gap-1.5">
+                <span className="size-2.5" style={{ background: GTD[cat].color }} aria-hidden />
+                <CategoryLabel category={cat} className="text-[11px] text-muted-foreground" />
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {anyUrgent ? (
-        <div className="card alert-card">
-          🔴 You have <b>something to do right now</b>. Tap a lit-up region to get going!
-        </div>
-      ) : (
-        <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>
-          🌫️ Nothing urgent. The continent is calm. (Regions light up when Next Action or Calendar has work.)
-        </div>
-      )}
-
-      <style jsx>{`
-        .map {
-          background: var(--surface-card);
-          border: 1px solid var(--hairline);
-          border-radius: var(--r-xl);
-          padding: 20px;
-        }
-        .map-alert {
-          border-color: var(--hairline-strong);
-        }
-        .map-grid {
-          position: relative;
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-        }
-        .region {
-          position: relative;
-          text-align: left;
-          border: 1px solid var(--hairline);
-          border-radius: var(--r-lg);
-          padding: 14px;
-          min-height: 118px;
-          background: #eceae4;
-          color: #8a887f;
-          filter: grayscale(1);
-          overflow: hidden;
-          transition: all 0.2s ease;
-        }
-        .region-dim {
-          filter: grayscale(0.75);
-          color: var(--body);
-        }
-        .region-on {
-          filter: none;
-          background: color-mix(in srgb, var(--rc) 22%, #ffffff);
-          border-color: var(--rc);
-          color: var(--ink);
-          box-shadow: 0 0 0 1px var(--rc);
-        }
-        .region-head {
-          margin-bottom: 8px;
-        }
-        .count {
-          background: var(--ink);
-          color: var(--canvas);
-          border-radius: 9999px;
-          min-width: 20px;
-          height: 20px;
-          padding: 0 6px;
-          display: grid;
-          place-items: center;
-          font-size: 12px;
-          font-weight: 700;
-        }
-        .region-on .count {
-          background: var(--primary);
-          color: #fff;
-        }
-        .region-name {
-          font-size: 15px;
-          font-weight: 600;
-        }
-        .region-terrain {
-          position: absolute;
-          right: 8px;
-          bottom: 6px;
-          font-size: 34px;
-          opacity: 0.5;
-        }
-        .beacon {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: var(--primary);
-          box-shadow: 0 0 0 0 var(--primary);
-          animation: beacon 1.4s infinite;
-        }
-        @keyframes beacon {
-          0% { box-shadow: 0 0 0 0 rgba(245, 78, 0, 0.5); }
-          100% { box-shadow: 0 0 0 12px rgba(245, 78, 0, 0); }
-        }
-        .hero-token {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          transform: translate(-50%, -50%);
-          font-size: 30px;
-          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-          animation: bob 2.4s ease-in-out infinite;
-          pointer-events: none;
-        }
-        @keyframes bob {
-          0%, 100% { transform: translate(-50%, -50%); }
-          50% { transform: translate(-50%, -62%); }
-        }
-        .map-legend {
-          gap: 14px;
-          margin-top: 16px;
-          padding-top: 14px;
-          border-top: 1px solid var(--hairline);
-        }
-        .lg-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 3px;
-          display: inline-block;
-        }
-        .alert-card {
-          background: color-mix(in srgb, var(--primary) 8%, #ffffff);
-          border-color: color-mix(in srgb, var(--primary) 30%, var(--hairline));
-          color: var(--ink);
-        }
-        @media (max-width: 560px) {
-          .map-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-      `}</style>
     </div>
   );
 }
-
-const TERRAIN: Record<GtdCategory, string> = {
-  inbox: "📥",
-  "next-action": "⚔️",
-  calendar: "🏰",
-  "someday-maybe": "🌫️",
-  "waiting-for": "⏳",
-};

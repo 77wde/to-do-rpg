@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore, shopItem } from "@/lib/store";
 import { FLAG_GOLD, FLAG_MINUTES } from "@/lib/constants";
 import type { Quest } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Phase = "running" | "paused" | "won" | "lost";
 
@@ -21,7 +23,7 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
   const skin = shopItem(state?.player.equippedSkin ?? "");
   const hasCat = state?.player.owned.includes("comp-cat");
 
-  // "데모 속도" compresses the whole session into ~48s so the mechanic is visible.
+  // Demo speed compresses the whole session into ~48s so the mechanic is visible.
   const [fast, setFast] = useState(false);
   const totalSec = quest.estimateMin * 60;
   const speed = fast ? totalSec / 48 : 1;
@@ -31,9 +33,9 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
   const flags = useMemo(() => {
     const inner = FLAG_MINUTES.filter((m) => m < quest.estimateMin).map((m) => ({
       frac: m / quest.estimateMin,
-      label: `${m}분`,
+      label: `${m}m`,
     }));
-    return [...inner, { frac: 1, label: "완료" }];
+    return [...inner, { frac: 1, label: "Done" }];
   }, [quest.estimateMin]);
 
   const [phase, setPhase] = useState<Phase>("running");
@@ -79,7 +81,7 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
         for (let i = 0; i < flags.length; i++) {
           if (!passedFlags.current.has(i) && hf >= flags[i].frac && flags[i].frac < 1) {
             passedFlags.current.add(i);
-            grantGold(FLAG_GOLD, `🚩 ${flags[i].label} 지점 통과! +${FLAG_GOLD} G`);
+            grantGold(FLAG_GOLD, `🚩 Passed the ${flags[i].label} flag! +${FLAG_GOLD} G`);
           }
         }
 
@@ -102,6 +104,15 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speed, totalSec]);
 
+  /**
+   * Walking away is not a failure: the session is simply dropped, with no HP
+   * loss and no log entry. Only the spikes catching you counts as a failure.
+   */
+  const cancel = useCallback(() => {
+    if (raf.current) cancelAnimationFrame(raf.current);
+    onClose();
+  }, [onClose]);
+
   // Esc closes only when finished (avoid accidental abandon)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -116,73 +127,83 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
   const danger = phase !== "won" && phase !== "lost" && gap < 0.08;
 
   return (
-    <div className="overlay">
-      <div className={`focus-modal ${danger ? "shake" : ""}`}>
-        {/* header */}
-        <div className="row between" style={{ marginBottom: 4 }}>
-          <span className="caption-upper" style={{ color: "var(--muted)" }}>
-            Focus session · Pomodoro
+    <div className="fixed inset-0 z-80 grid animate-[float-in_0.2s_ease_both] place-items-center bg-foreground/55 p-4 backdrop-blur-[3px]">
+      <div
+        className={cn(
+          "w-full max-w-[400px] border-[3px] border-foreground bg-card p-4 shadow-[6px_6px_0_0_var(--foreground)]",
+          danger && "shake",
+        )}
+      >
+        {/* Header */}
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className="font-pixel text-[9px] tracking-widest text-muted-foreground">
+            FOCUS SESSION
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setFast((f) => !f)} title="Fast speed for demo">
-            {fast ? "🐇 Demo speed ON" : "🐢 Real speed"}
-          </button>
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => setFast((f) => !f)}
+            title="Fast speed for demo"
+          >
+            {fast ? "🐇 Demo" : "🐢 Real"}
+          </Button>
         </div>
 
-        <h2 className="display-sm" style={{ margin: "0 0 2px" }}>
-          {quest.title}
-        </h2>
-        <div className="row" style={{ gap: 12, marginBottom: 16 }}>
-          <span className="mono" style={{ fontSize: 30, fontWeight: 700 }}>
-            {fmt(remaining)}
-          </span>
-          <span className="caption">
-            Time left · target {quest.estimateMin} min
+        <h2 className="text-lg leading-snug font-semibold">{quest.title}</h2>
+        <div className="mb-3 flex items-baseline gap-2">
+          <span className="text-3xl font-bold tabular-nums">{fmt(remaining)}</span>
+          <span className="text-xs text-muted-foreground">
+            left · target {quest.estimateMin} min
           </span>
         </div>
 
-        {/* runner scene */}
-        <div className="scene">
-          <div className="sky" />
-          {/* flags */}
+        {/* Runner scene */}
+        <div className="focus-scene">
           {flags.map((f, i) => (
-            <div key={i} className="flag" style={{ left: `calc(6% + ${f.frac * 82}%)` }}>
-              <span className="flag-glyph">{f.frac >= 1 ? "🏁" : "🚩"}</span>
-              <span className="flag-label caption mono">{f.label}</span>
+            <div key={i} className="focus-flag" style={{ left: `calc(6% + ${f.frac * 82}%)` }}>
+              <span className="text-lg">{f.frac >= 1 ? "🏁" : "🚩"}</span>
+              <span className="mt-0.5 bg-white/70 px-1 text-[10px] tabular-nums">
+                {f.label}
+              </span>
             </div>
           ))}
-          {/* spikes chasing from behind */}
           <div
-            className="spikes"
+            className="focus-actor focus-spikes"
             style={{ left: `calc(6% + ${Math.max(-0.06, spikeFrac) * 82}%)` }}
+            aria-hidden
           >
             🌵🔺🔺
           </div>
-          {/* hero */}
-          <div className="hero" style={{ left: `calc(6% + ${heroFrac * 82}%)` }}>
-            <span className={`hero-glyph ${phase === "running" ? "walking" : ""}`}>
+          <div
+            className="focus-actor focus-hero"
+            style={{ left: `calc(6% + ${heroFrac * 82}%)` }}
+          >
+            <span
+              className={cn("focus-hero-glyph", phase === "running" && "focus-walking")}
+            >
               {skin?.glyph ?? "🧑‍🚀"}
             </span>
-            {hasCat && <span className="companion">🐈</span>}
+            {hasCat && <span className="absolute -left-6 bottom-0 text-xl">🐈</span>}
           </div>
-          {/* ground */}
-          <div className="ground" />
+          <div className="focus-ground" />
         </div>
 
-        {/* gap meter */}
-        <div className="row between" style={{ margin: "14px 0 6px" }}>
-          <span className="caption">
+        {/* Gap meter */}
+        <div className="mt-3 mb-1.5 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-muted-foreground">
             {phase === "won"
               ? "🏁 Reached the finish line!"
               : phase === "lost"
                 ? "💥 Caught by the spikes"
                 : danger
                   ? "⚠️ The spikes are right behind you!"
-                  : "Distance from the spikes — it shrinks if you stop focusing"}
+                  : "Distance from the spikes"}
           </span>
-          <span className="caption mono">{Math.round(gap * 100)}%</span>
+          <span className="shrink-0 text-[11px] tabular-nums">{Math.round(gap * 100)}%</span>
         </div>
-        <div className="bar" style={{ height: 10 }}>
+        <div className="h-2.5 w-full border-[3px] border-foreground bg-card">
           <span
+            className="block h-full"
             style={{
               width: `${Math.round(gap * 100)}%`,
               background: danger ? "var(--error)" : "var(--success)",
@@ -190,181 +211,63 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
           />
         </div>
 
-        {/* controls */}
-        <div className="row wrap" style={{ gap: 10, marginTop: 20, justifyContent: "center" }}>
+        {/* Controls */}
+        <div className="mt-4 flex flex-col gap-2">
           {phase === "running" && (
             <>
-              <button className="btn btn-secondary" onClick={() => setPhase("paused")}>
-                ⏸ Pause
-              </button>
-              <button className="btn btn-primary" onClick={() => finish(true)}>
-                ✓ I did it!
-              </button>
-              <button className="btn btn-ghost" onClick={() => finish(false)}>
-                Give up
-              </button>
+              <Button onClick={() => finish(true)}>✓ I did it!</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setPhase("paused")}>
+                  ⏸ Pause
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={cancel}>
+                  ✕ Cancel
+                </Button>
+              </div>
             </>
           )}
           {phase === "paused" && (
             <>
-              <div className="caption" style={{ width: "100%", textAlign: "center", color: "var(--error)" }}>
-                ⏸ The spikes close in while you're stopped. Resume quickly!
+              <p className="text-center text-[11px] text-destructive">
+                ⏸ The spikes close in while you&apos;re stopped. Resume quickly!
+              </p>
+              <Button onClick={() => setPhase("running")}>▶ Resume</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => finish(true)}>
+                  ✓ I did it!
+                </Button>
+                <Button variant="ghost" className="flex-1" onClick={cancel}>
+                  ✕ Cancel
+                </Button>
               </div>
-              <button className="btn btn-primary" onClick={() => setPhase("running")}>
-                ▶ Resume
-              </button>
-              <button className="btn btn-primary" onClick={() => finish(true)}>
-                ✓ I did it!
-              </button>
-              <button className="btn btn-ghost" onClick={() => finish(false)}>
-                Give up
-              </button>
             </>
           )}
           {phase === "won" && (
-            <div className="result">
-              <div className="result-emoji" style={{ animation: "pop 0.4s both" }}>
-                🎉
-              </div>
-              <p className="title-md" style={{ margin: "0 0 4px" }}>
-                Quest complete!
-              </p>
-              <p className="caption" style={{ margin: "0 0 16px" }}>
+            <div className="flex animate-[float-in_0.24s_ease_both] flex-col items-center gap-1 text-center">
+              <div className="animate-[pop_0.4s_both] text-5xl">🎉</div>
+              <p className="font-semibold">Quest complete!</p>
+              <p className="mb-2 text-xs text-muted-foreground">
                 Earned +{quest.xpReward} XP · +{quest.goldReward} G
               </p>
-              <button className="btn btn-primary" onClick={onClose}>
+              <Button className="w-full" onClick={onClose}>
                 Continue →
-              </button>
+              </Button>
             </div>
           )}
           {phase === "lost" && (
-            <div className="result">
-              <div className="result-emoji">😵</div>
-              <p className="title-md" style={{ margin: "0 0 4px" }}>
-                Focus failed
-              </p>
-              <p className="caption" style={{ margin: "0 0 16px" }}>
+            <div className="flex animate-[float-in_0.24s_ease_both] flex-col items-center gap-1 text-center">
+              <div className="text-5xl">😵</div>
+              <p className="font-semibold">Focus failed</p>
+              <p className="mb-2 text-xs text-muted-foreground">
                 The spikes hit you and HP dropped. Give it another try!
               </p>
-              <button className="btn btn-secondary" onClick={onClose}>
+              <Button variant="outline" className="w-full" onClick={onClose}>
                 Close
-              </button>
+              </Button>
             </div>
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        .overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 80;
-          background: rgba(38, 37, 30, 0.55);
-          backdrop-filter: blur(3px);
-          display: grid;
-          place-items: center;
-          padding: 20px;
-          animation: float-in 0.2s ease both;
-        }
-        .focus-modal {
-          width: 100%;
-          max-width: 620px;
-          background: var(--surface-card);
-          border: 1px solid var(--hairline);
-          border-radius: var(--r-xl);
-          padding: 24px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-        }
-        .scene {
-          position: relative;
-          height: 168px;
-          border-radius: var(--r-lg);
-          overflow: hidden;
-          border: 1px solid var(--hairline);
-          background: linear-gradient(#dbeafe 0%, #eef2f7 62%, #e7e3d6 62%, #ded9c8 100%);
-        }
-        .sky {
-          position: absolute;
-          inset: 0 0 38% 0;
-        }
-        .ground {
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          height: 38%;
-          background:
-            repeating-linear-gradient(
-              90deg,
-              #cfc9b4 0 24px,
-              #c7c1ac 24px 48px
-            );
-          border-top: 3px solid #b7b09a;
-        }
-        .hero {
-          position: absolute;
-          bottom: 30%;
-          transform: translateX(-50%);
-          transition: left 0.12s linear;
-          text-align: center;
-          z-index: 3;
-        }
-        .hero-glyph {
-          font-size: 38px;
-          display: inline-block;
-          filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.25));
-        }
-        .walking {
-          animation: walk 0.5s steps(2) infinite;
-        }
-        @keyframes walk {
-          0% { transform: translateY(0) rotate(-3deg); }
-          50% { transform: translateY(-3px) rotate(3deg); }
-          100% { transform: translateY(0) rotate(-3deg); }
-        }
-        .companion {
-          position: absolute;
-          left: -26px;
-          bottom: 0;
-          font-size: 22px;
-        }
-        .spikes {
-          position: absolute;
-          bottom: 30%;
-          transform: translateX(-50%);
-          transition: left 0.12s linear;
-          font-size: 26px;
-          letter-spacing: -6px;
-          z-index: 2;
-          filter: saturate(1.2);
-        }
-        .flag {
-          position: absolute;
-          bottom: 34%;
-          transform: translateX(-50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          z-index: 1;
-        }
-        .flag-glyph {
-          font-size: 22px;
-        }
-        .flag-label {
-          margin-top: 2px;
-          background: rgba(255, 255, 255, 0.7);
-          padding: 0 4px;
-          border-radius: 4px;
-        }
-        .result {
-          text-align: center;
-          width: 100%;
-          animation: float-in 0.24s ease both;
-        }
-        .result-emoji {
-          font-size: 48px;
-        }
-      `}</style>
     </div>
   );
 }

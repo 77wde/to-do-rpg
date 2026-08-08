@@ -10,10 +10,41 @@ import {
   maxHpForLevel,
   xpToNext,
 } from "./constants";
-import type { GameState, LogEntry, Player, Quest } from "./types";
+import type { GameState, GtdCategory, LogEntry, Player, Quest } from "./types";
 
+/**
+ * `YYYY-MM-DD` in the player's own timezone. Deliberately not `toISOString()`,
+ * which formats in UTC: east of Greenwich that names yesterday for most of the
+ * morning, so a quest due "today" would not show up in Today, and the daily
+ * reset would fire at the wrong hour.
+ */
 export function todayStr(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Parses a `YYYY-MM-DD` produced by todayStr back into a local Date. */
+export function parseDateStr(s: string): Date {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * The open quests a map region shows. Next Action is the "what do I do right
+ * now" region, so it also borrows anything that has become due today — dailies
+ * and dated quests — no matter which category they were filed under. Every
+ * other region is exactly its own category.
+ */
+export function questsForRegion(
+  quests: Quest[],
+  cat: GtdCategory,
+  today = todayStr(),
+): Quest[] {
+  return quests.filter((q) => {
+    if (q.status !== "todo") return false;
+    if (q.category === cat) return true;
+    return cat === "next-action" && (q.isDaily || q.dueDate === today);
+  });
 }
 
 /**

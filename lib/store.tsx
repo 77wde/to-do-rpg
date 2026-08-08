@@ -139,6 +139,14 @@ interface StoreCtx {
    * screen uses this to ask for a nickname before creating one.
    */
   needsNickname: boolean;
+  /**
+   * Cloud mode only: signed in, but the save could not be fetched. Without
+   * this the UI has no way to tell "still loading" from "gave up", and the
+   * start screen would sit on its spinner forever.
+   */
+  loadFailed: boolean;
+  /** Retries the failed load. */
+  retryLoad: () => void;
   toasts: Toast[];
   start: (nickname: string) => void;
   /** resume the saved adventure without wiping it */
@@ -168,6 +176,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [needsNickname, setNeedsNickname] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  /** Bumping this re-runs the load effect. */
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevLevel = useRef<number | null>(null);
   /** Last state known to be in the database — the baseline for the next diff. */
@@ -248,6 +259,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!isSupabaseConfigured || !userId) return;
     let alive = true;
     setReady(false);
+    setLoadFailed(false);
 
     loadGameState(userId)
       .then((loaded) => {
@@ -270,14 +282,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .catch((err) => {
         if (!alive) return;
         console.error("[questlog] could not load your save", err);
-        toast({ glyph: "⚠️", text: "Could not load your save.", tone: "bad" });
+        setLoadFailed(true);
         setReady(true);
       });
 
     return () => {
       alive = false;
     };
-  }, [userId, toast]);
+  }, [userId, loadAttempt, toast]);
 
   // ---- Local mode: persist on every change --------------------------------
   useEffect(() => {
@@ -320,6 +332,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ready,
       loggedIn: isSupabaseConfigured ? !!userId && !!state : !!state && session,
       needsNickname,
+      loadFailed,
+      retryLoad: () => setLoadAttempt((n) => n + 1),
       toasts,
       toast,
       start: (nickname) => {
@@ -384,7 +398,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       equipSkin: (id) => dispatch({ type: "equipSkin", skinId: id }),
       equipTitle: (id) => dispatch({ type: "equipTitle", titleId: id }),
     }),
-    [state, ready, session, userId, needsNickname, toasts, toast, queueWrite],
+    [state, ready, session, userId, needsNickname, loadFailed, toasts, toast, queueWrite],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

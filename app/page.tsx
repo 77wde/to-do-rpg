@@ -9,7 +9,9 @@ import {
   signUpWithEmail,
 } from "@/lib/supabase/auth";
 import PixelLogo from "@/components/PixelLogo";
-import PixelButton from "@/components/PixelButton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Mode = "signin" | "signup";
 
@@ -33,7 +35,8 @@ function friendlyError(raw: string): string {
 
 export default function StartPage() {
   const router = useRouter();
-  const { state, ready, loggedIn, needsNickname, resume, start } = useStore();
+  const { state, ready, loggedIn, needsNickname, loadFailed, retryLoad, resume, start } =
+    useStore();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -50,14 +53,14 @@ export default function StartPage() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
+  /** Nickname entry is a second step, shown only for a brand-new adventure. */
+  const [askName, setAskName] = useState(false);
+  const [nickname, setNickname] = useState("Hero");
+
   function showError(message: string) {
     setError(message);
     setErrorSeq((n) => n + 1);
   }
-
-  /** Nickname entry is a second step, shown only for a brand-new adventure. */
-  const [askName, setAskName] = useState(false);
-  const [nickname, setNickname] = useState("Hero");
 
   /**
    * Cloud mode: signing in only starts the work. The store then loads the
@@ -66,24 +69,28 @@ export default function StartPage() {
    */
   useEffect(() => {
     if (!isSupabaseConfigured || !ready) return;
+    if (loadFailed) {
+      // Sign-in worked but the save could not be fetched. Drop out of the
+      // pending state so the screen offers a retry instead of hanging.
+      setBusy(false);
+      return;
+    }
     if (needsNickname) {
       setAskName(true);
       return;
     }
     if (loggedIn) router.push("/play");
-  }, [ready, needsNickname, loggedIn, router]);
+  }, [ready, needsNickname, loggedIn, loadFailed, router]);
 
   /** Local mode only — cloud sign-in is routed by the effect above. */
   function enterGame() {
     if (state) {
-      // saved adventure → resume it
       resume();
       router.push("/play");
       return;
     }
-    // new adventure → ask for a nickname in-app.
-    // Not window.prompt(): embedded webviews block it outright, and an OS
-    // dialog breaks the retro look anyway.
+    // Ask for a nickname in-app. Not window.prompt(): embedded webviews block
+    // it outright, and an OS dialog breaks the retro look anyway.
     setAskName(true);
   }
 
@@ -134,171 +141,162 @@ export default function StartPage() {
     setPassword("");
   }
 
-  const labelStyle: React.CSSProperties = {
-    fontFamily: "var(--font-pixel)",
-    fontSize: 10,
-    letterSpacing: 1,
-    alignSelf: "flex-start",
-  };
-  const fieldStyle: React.CSSProperties = { width: 280 };
+  const errorBanner = error && (
+    <div
+      key={errorSeq}
+      className="error-plate shake w-full"
+      role="alert"
+      aria-live="assertive"
+    >
+      <span className="mark" aria-hidden>
+        !
+      </span>
+      <span>{error}</span>
+    </div>
+  );
 
   return (
-    <main
-      style={{
-        minHeight: "100dvh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-      }}
-    >
-      <div
-        className="float-in"
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 32 }}
-      >
-        <PixelLogo size={200} />
+    <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-8 px-5 py-10">
+      <div className="float-in flex w-full flex-col items-center gap-8">
+        <PixelLogo size={180} />
 
         {askName ? (
           /* ---- Nickname ---- */
-          <form
-            onSubmit={submitNickname}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}
-          >
-            <label htmlFor="nickname" style={{ ...labelStyle, alignSelf: "center", fontSize: 12 }}>
+          <form onSubmit={submitNickname} className="flex w-full flex-col items-center gap-5">
+            <Label htmlFor="nickname" className="font-pixel text-xs tracking-widest">
               ENTER YOUR NAME
-            </label>
-            <input
+            </Label>
+            <Input
               id="nickname"
-              className="input"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               // matches the nickname length constraint on public.players
               maxLength={32}
               autoFocus
-              style={{ ...fieldStyle, fontFamily: "var(--font-pixel)", textAlign: "center" }}
+              className="text-center"
             />
-            <PixelButton type="submit" disabled={!nickname.trim()}>
+            <Button type="submit" size="lg" disabled={!nickname.trim()} className="w-full">
               Start
-            </PixelButton>
+            </Button>
           </form>
+        ) : loadFailed ? (
+          /* ---- Signed in, but the save would not load ---- */
+          <div className="flex w-full flex-col items-center gap-5 text-center">
+            <p className="font-pixel text-xs tracking-widest">COULD NOT LOAD</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              You&apos;re signed in, but your save didn&apos;t come through. This
+              usually clears up on a retry.
+            </p>
+            <Button size="lg" className="w-full" onClick={retryLoad}>
+              Try again
+            </Button>
+          </div>
         ) : sentTo ? (
           /* ---- Check your inbox ---- */
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 20,
-              maxWidth: 340,
-              textAlign: "center",
-            }}
-          >
-            <p style={{ fontFamily: "var(--font-pixel)", fontSize: 12, letterSpacing: 1 }}>
-              CHECK YOUR INBOX
-            </p>
-            <p style={{ fontSize: 13, lineHeight: 1.7 }}>
-              We sent a confirmation link to <strong>{sentTo}</strong>. Open it to
+          <div className="flex w-full flex-col items-center gap-5 text-center">
+            <p className="font-pixel text-xs tracking-widest">CHECK YOUR INBOX</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              We sent a confirmation link to{" "}
+              <strong className="text-foreground">{sentTo}</strong>. Open it to
               activate your account, then come back and log in.
             </p>
-            <PixelButton
+            <Button
+              size="lg"
+              className="w-full"
               onClick={() => {
                 setSentTo(null);
                 switchMode("signin");
               }}
             >
               Back to login
-            </PixelButton>
+            </Button>
           </div>
         ) : !isSupabaseConfigured ? (
           /* ---- Local-only play ---- */
-          <PixelButton onClick={enterGame}>Login</PixelButton>
+          <Button size="lg" className="w-full" onClick={enterGame}>
+            Login
+          </Button>
         ) : (
           /* ---- Email + password ---- */
-          <form
-            onSubmit={submitAuth}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}
-          >
-            <div className="row" style={{ gap: 4 }}>
-              <button
+          <form onSubmit={submitAuth} className="flex w-full flex-col gap-4">
+            <div className="flex gap-2">
+              <Button
                 type="button"
-                className={`btn btn-sm ${mode === "signin" ? "btn-secondary" : "btn-ghost"}`}
+                variant={mode === "signin" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1"
                 onClick={() => switchMode("signin")}
                 aria-pressed={mode === "signin"}
               >
                 Log in
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`btn btn-sm ${mode === "signup" ? "btn-secondary" : "btn-ghost"}`}
+                variant={mode === "signup" ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1"
                 onClick={() => switchMode("signup")}
                 aria-pressed={mode === "signup"}
               >
                 Sign up
-              </button>
+              </Button>
             </div>
 
-            <label htmlFor="email" style={labelStyle}>
-              EMAIL
-            </label>
-            <input
-              id="email"
-              className="input"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={fieldStyle}
-            />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email" className="font-pixel text-[10px] tracking-widest">
+                EMAIL
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
 
-            <label htmlFor="password" style={labelStyle}>
-              PASSWORD
-            </label>
-            <input
-              id="password"
-              ref={passwordRef}
-              className={`input${error ? " is-error" : ""}`}
-              type="password"
-              required
-              minLength={MIN_PASSWORD_LENGTH}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              aria-invalid={error ? true : undefined}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                // Typing means they've seen it — clear the flagged state.
-                if (error) setError(null);
-              }}
-              style={fieldStyle}
-            />
-            {mode === "signup" && !error && (
-              <span className="caption" style={{ fontSize: 11 }}>
-                At least {MIN_PASSWORD_LENGTH} characters
-              </span>
-            )}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="password" className="font-pixel text-[10px] tracking-widest">
+                  PASSWORD
+                </Label>
+                {/* Sits on the label row so the hint never pushes the submit
+                    button down when it appears. */}
+                {mode === "signup" && !error && (
+                  <span className="text-[10px] text-muted-foreground">
+                    At least {MIN_PASSWORD_LENGTH} characters
+                  </span>
+                )}
+              </div>
+              <Input
+                id="password"
+                ref={passwordRef}
+                type="password"
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                aria-invalid={error ? true : undefined}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  // Typing means they've seen it — clear the flagged state.
+                  if (error) setError(null);
+                }}
+              />
+            </div>
 
             {/* Above the button, not below: the button is what the user just
-                clicked, so anything under it can sit past the fold. */}
-            {error && (
-              <div
-                key={errorSeq}
-                className="error-plate shake"
-                role="alert"
-                aria-live="assertive"
-              >
-                <span className="mark" aria-hidden>
-                  !
-                </span>
-                <span>{error}</span>
-              </div>
-            )}
+                tapped, so anything under it can sit past the fold. */}
+            {errorBanner}
 
-            <PixelButton type="submit" disabled={busy}>
+            <Button type="submit" size="lg" disabled={busy} className="w-full">
               {busy
                 ? "Please wait..."
                 : mode === "signup"
                   ? "Create account"
                   : "Log in"}
-            </PixelButton>
+            </Button>
           </form>
         )}
       </div>

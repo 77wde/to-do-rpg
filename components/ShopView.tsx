@@ -2,6 +2,9 @@
 import { useStore } from "@/lib/store";
 import { CONSUMABLE_IDS, SHOP } from "@/lib/constants";
 import type { ShopItem } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const KIND_LABEL: Record<ShopItem["kind"], string> = {
   skin: "Character Skins",
@@ -17,25 +20,21 @@ export default function ShopView() {
   const groups: ShopItem["kind"][] = ["skin", "companion", "item"];
 
   return (
-    <div className="col" style={{ gap: 20 }}>
-      <div className="row between wrap" style={{ gap: 12 }}>
-        <div className="col" style={{ gap: 4 }}>
-          <h2 className="display-sm" style={{ margin: 0 }}>
-            Shop
-          </h2>
-          <p className="caption" style={{ margin: 0 }}>
-            Spend the gold you earned from quests on skins, companions, and items.
-          </p>
-        </div>
-        <span className="gold-big row">🪙 <b className="mono">{p.gold.toLocaleString()}</b> G</span>
+    <div className="flex flex-col gap-5">
+      {/* No gold counter here — the header carries it on every tab. */}
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-semibold">Shop</h2>
+        <p className="text-xs text-muted-foreground">
+          Spend the gold you earned from quests.
+        </p>
       </div>
 
       {groups.map((g) => (
-        <section key={g} className="col" style={{ gap: 12 }}>
-          <h3 className="title-sm" style={{ margin: 0, color: "var(--muted)" }}>
-            {KIND_LABEL[g]}
-          </h3>
-          <div className="shop-grid">
+        <section key={g} className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-muted-foreground">{KIND_LABEL[g]}</h3>
+          {/* One column: at handset width a two-up grid squeezes the buy
+              buttons below a comfortable tap target. */}
+          <div className="flex flex-col gap-2.5">
             {SHOP.filter((s) => s.kind === g).map((item) => {
               const owned = p.owned.includes(item.id);
               const consumable = CONSUMABLE_IDS.has(item.id);
@@ -44,131 +43,119 @@ export default function ShopView() {
               const canAfford = p.gold >= item.price;
 
               return (
-                <div key={item.id} className={`shop-card ${equipped ? "equipped" : ""}`}>
-                  <div className="glyph">{item.glyph}</div>
-                  <div className="col grow" style={{ gap: 2 }}>
-                    <div className="row between">
-                      <span className="title-sm">{item.name}</span>
-                      {item.price === 0 ? (
-                        <span className="caption">Default</span>
-                      ) : (
-                        <span className="mono" style={{ color: "var(--gold)", fontWeight: 600 }}>
-                          {item.price} G
-                        </span>
-                      )}
+                <Card
+                  key={item.id}
+                  size="sm"
+                  className={cn(equipped && "border-[var(--success)]")}
+                >
+                  <CardContent className="flex gap-3">
+                    <div className="text-4xl leading-none" aria-hidden>
+                      {item.glyph}
                     </div>
-                    <span className="caption">{item.desc}</span>
-                    {item.reqLevel && (
-                      <span className="caption" style={{ color: locked ? "var(--error)" : "var(--success)" }}>
-                        Requires Lv.{item.reqLevel}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="actions">
-                    {locked ? (
-                      <button className="btn btn-secondary btn-sm btn-block" disabled>
-                        🔒 Lv.{item.reqLevel}
-                      </button>
-                    ) : g === "skin" ? (
-                      owned ? (
-                        <button
-                          className="btn btn-sm btn-block"
-                          style={
-                            equipped
-                              ? { background: "var(--success)", color: "#fff" }
-                              : { background: "var(--surface-card)", border: "1px solid var(--hairline-strong)" }
-                          }
-                          onClick={() => equipSkin(item.id)}
-                          disabled={equipped}
-                        >
-                          {equipped ? "✓ Equipped" : "Equip"}
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-primary btn-sm btn-block"
-                          onClick={() => buy(item)}
-                          disabled={!canAfford}
-                        >
-                          {canAfford ? "Buy" : "Not enough gold"}
-                        </button>
-                      )
-                    ) : consumable ? (
-                      <div className="col" style={{ gap: 6 }}>
-                        <button
-                          className="btn btn-primary btn-sm btn-block"
-                          onClick={() => buy(item)}
-                          disabled={!canAfford}
-                        >
-                          {canAfford ? "Buy" : "Not enough gold"}
-                        </button>
-                        {owned && item.id === "item-potion" && (
-                          <button className="btn btn-secondary btn-sm btn-block" onClick={() => useItem(item.id)}>
-                            🧪 Use (HP+30)
-                          </button>
-                        )}
-                        {owned && item.id === "item-shield" && (
-                          <span className="caption" style={{ textAlign: "center", color: "var(--success)" }}>
-                            🛡️ Owned (auto-defends)
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-semibold">{item.name}</span>
+                        {item.price === 0 ? (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            Default
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--gold)]">
+                            {item.price} G
                           </span>
                         )}
                       </div>
-                    ) : owned ? (
-                      <button className="btn btn-sm btn-block" style={{ background: "var(--success)", color: "#fff" }} disabled>
-                        ✓ Owned
-                      </button>
-                    ) : (
-                      <button
-                        className="btn btn-primary btn-sm btn-block"
-                        onClick={() => buy(item)}
-                        disabled={!canAfford}
-                      >
-                        {canAfford ? "Buy" : "Not enough gold"}
-                      </button>
-                    )}
-                  </div>
-                </div>
+                      <span className="text-xs text-muted-foreground">{item.desc}</span>
+                      {item.reqLevel && (
+                        <span
+                          className={cn(
+                            "text-xs",
+                            locked ? "text-destructive" : "text-[var(--success)]",
+                          )}
+                        >
+                          Requires Lv.{item.reqLevel}
+                        </span>
+                      )}
+
+                      <div className="mt-1 flex flex-col gap-1.5">
+                        {locked ? (
+                          <Button size="sm" variant="outline" disabled className="w-full">
+                            🔒 Lv.{item.reqLevel}
+                          </Button>
+                        ) : g === "skin" ? (
+                          owned ? (
+                            <Button
+                              size="sm"
+                              variant={equipped ? "default" : "outline"}
+                              className={cn("w-full", equipped && "bg-[var(--success)]")}
+                              onClick={() => equipSkin(item.id)}
+                              disabled={equipped}
+                            >
+                              {equipped ? "✓ Equipped" : "Equip"}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={() => buy(item)}
+                              disabled={!canAfford}
+                            >
+                              {canAfford ? "Buy" : "Not enough gold"}
+                            </Button>
+                          )
+                        ) : consumable ? (
+                          <>
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={() => buy(item)}
+                              disabled={!canAfford}
+                            >
+                              {canAfford ? "Buy" : "Not enough gold"}
+                            </Button>
+                            {owned && item.id === "item-potion" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => useItem(item.id)}
+                              >
+                                🧪 Use (HP+30)
+                              </Button>
+                            )}
+                            {owned && item.id === "item-shield" && (
+                              <span className="text-center text-xs text-[var(--success)]">
+                                🛡️ Owned (auto-defends)
+                              </span>
+                            )}
+                          </>
+                        ) : owned ? (
+                          <Button
+                            size="sm"
+                            className="w-full bg-[var(--success)]"
+                            disabled
+                          >
+                            ✓ Owned
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={() => buy(item)}
+                            disabled={!canAfford}
+                          >
+                            {canAfford ? "Buy" : "Not enough gold"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         </section>
       ))}
-
-      <style jsx>{`
-        .gold-big {
-          gap: 6px;
-          font-size: 18px;
-          color: var(--gold);
-        }
-        .gold-big b {
-          color: var(--ink);
-        }
-        .shop-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 12px;
-        }
-        .shop-card {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          background: var(--surface-card);
-          border: 1px solid var(--hairline);
-          border-radius: var(--r-lg);
-          padding: 16px;
-        }
-        .shop-card.equipped {
-          border-color: var(--success);
-          box-shadow: 0 0 0 1px var(--success);
-        }
-        .glyph {
-          font-size: 40px;
-          line-height: 1;
-        }
-        .actions {
-          margin-top: auto;
-        }
-      `}</style>
     </div>
   );
 }

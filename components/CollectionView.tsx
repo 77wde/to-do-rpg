@@ -1,6 +1,10 @@
 "use client";
 import { useStore } from "@/lib/store";
 import { COLLECTIBLES, xpToNext } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function CollectionView() {
   const { state, equipTitle } = useStore();
@@ -11,109 +15,84 @@ export default function CollectionView() {
   )[0];
 
   return (
-    <div className="col" style={{ gap: 20 }}>
-      <div className="col" style={{ gap: 4 }}>
-        <h2 className="display-sm" style={{ margin: 0 }}>
-          Collection · Titles
-        </h2>
-        <p className="caption" style={{ margin: 0 }}>
-          Level up to unlock special collectibles and titles no shop can sell.
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-semibold">Collection · Titles</h2>
+        <p className="text-xs text-muted-foreground">
+          Level up to unlock collectibles and titles no shop can sell.
         </p>
       </div>
 
       {nextLocked && (
-        <div className="card next-unlock">
-          <div className="row between wrap" style={{ gap: 8 }}>
-            <span>
-              Next unlock: <b>{nextLocked.glyph} {nextLocked.name}</b> — Lv.{nextLocked.unlockLevel}
+        <Card size="sm" className="bg-[color-mix(in_srgb,var(--xp)_8%,#fff)]">
+          <CardContent className="flex flex-col gap-1">
+            <span className="text-sm">
+              Next unlock:{" "}
+              <b>
+                {nextLocked.glyph} {nextLocked.name}
+              </b>{" "}
+              — Lv.{nextLocked.unlockLevel}
             </span>
-            <span className="caption mono">
+            <span className="text-xs tabular-nums text-muted-foreground">
               Currently Lv.{p.level} · {p.xp}/{xpToNext(p.level)} XP
             </span>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="coll-grid">
+      <div className="flex flex-col gap-2.5">
         {COLLECTIBLES.map((c) => {
           const unlocked = c.unlockLevel <= p.level;
           const isTitle = c.kind === "title";
           const equipped = p.equippedTitle === c.id;
           return (
-            <div key={c.id} className={`coll-card ${unlocked ? "" : "locked"} ${equipped ? "equipped" : ""}`}>
-              <div className="coll-glyph">{unlocked ? c.glyph : "❔"}</div>
-              <div className="col grow" style={{ gap: 2 }}>
-                <div className="row between">
-                  <span className="title-sm">{unlocked ? c.name : "???"}</span>
-                  <span className="badge">{isTitle ? "Title" : "Trophy"}</span>
-                </div>
-                <span className="caption">{unlocked ? c.desc : `Unlocks at Lv.${c.unlockLevel}`}</span>
-              </div>
-              {unlocked && isTitle && (
-                <button
-                  className="btn btn-sm btn-block"
-                  style={
-                    equipped
-                      ? { background: "var(--success)", color: "#fff" }
-                      : { background: "var(--surface-card)", border: "1px solid var(--hairline-strong)" }
-                  }
-                  onClick={() => equipTitle(equipped ? null : c.id)}
+            <Card
+              key={c.id}
+              size="sm"
+              className={cn(
+                !unlocked && "bg-[var(--canvas-soft)] text-muted-foreground",
+                equipped && "border-[var(--success)]",
+              )}
+            >
+              <CardContent className="flex gap-3">
+                <div
+                  className={cn("text-4xl leading-none", !unlocked && "opacity-50 grayscale")}
+                  aria-hidden
                 >
-                  {equipped ? "✓ Title equipped (unequip)" : "Equip title"}
-                </button>
-              )}
-              {!unlocked && (
-                <div className="lock-badge">🔒 Lv.{c.unlockLevel}</div>
-              )}
-            </div>
+                  {unlocked ? c.glyph : "❔"}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-semibold">{unlocked ? c.name : "???"}</span>
+                    <Badge variant="secondary" className="shrink-0">
+                      {isTitle ? "Title" : "Trophy"}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {unlocked ? c.desc : `Unlocks at Lv.${c.unlockLevel}`}
+                  </span>
+
+                  {unlocked && isTitle && (
+                    <Button
+                      size="sm"
+                      variant={equipped ? "default" : "outline"}
+                      className={cn("mt-1 w-full", equipped && "bg-[var(--success)]")}
+                      onClick={() => equipTitle(equipped ? null : c.id)}
+                    >
+                      {equipped ? "✓ Equipped (tap to remove)" : "Equip title"}
+                    </Button>
+                  )}
+                  {!unlocked && (
+                    <div className="mt-1 border-[3px] border-foreground bg-secondary py-1.5 text-center text-xs">
+                      🔒 Lv.{c.unlockLevel}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           );
         })}
       </div>
-
-      <style jsx>{`
-        .next-unlock {
-          background: color-mix(in srgb, var(--xp) 8%, #ffffff);
-          border-color: color-mix(in srgb, var(--xp) 25%, var(--hairline));
-        }
-        .coll-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 12px;
-        }
-        .coll-card {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          background: var(--surface-card);
-          border: 1px solid var(--hairline);
-          border-radius: var(--r-lg);
-          padding: 16px;
-        }
-        .coll-card.locked {
-          background: var(--canvas-soft);
-          color: var(--muted);
-        }
-        .coll-card.equipped {
-          border-color: var(--success);
-          box-shadow: 0 0 0 1px var(--success);
-        }
-        .coll-glyph {
-          font-size: 40px;
-          filter: var(--f, none);
-        }
-        .locked .coll-glyph {
-          filter: grayscale(1) opacity(0.5);
-        }
-        .lock-badge {
-          margin-top: auto;
-          text-align: center;
-          font-size: 13px;
-          color: var(--muted);
-          background: var(--surface-strong);
-          border-radius: var(--r-md);
-          padding: 6px;
-        }
-      `}</style>
     </div>
   );
 }

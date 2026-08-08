@@ -18,7 +18,7 @@ export function maxHpForLevel(level: number): number {
 export const START_HP = 100;
 export const PENALTY_HP = 12; // hp lost when a daily quest is missed / focus fails
 export const PENALTY_XP = 15; // xp lost on missed daily
-export const FOCUS_FAIL_HP = 10; // hp lost when giving up a focus session
+export const FOCUS_FAIL_HP = 10; // hp lost when the spikes catch you mid-session
 
 /** Flag checkpoints (in minutes) inside the idle runner. */
 export const FLAG_MINUTES = [10, 20, 25];
@@ -32,6 +32,8 @@ export interface GtdMeta {
   label: string;
   short: string;
   color: string; // css var
+  /** Emoji that stands for this category everywhere it appears in the UI. */
+  glyph: string;
   desc: string;
   /** grid cell on the 5-region map */
   cell: { x: number; y: number };
@@ -45,6 +47,7 @@ export const GTD: Record<GtdCategory, GtdMeta> = {
     label: "Inbox",
     short: "IN",
     color: "var(--tl-thinking)",
+    glyph: "📥",
     desc: "Uncategorized new tasks",
     cell: { x: 0, y: 0 },
     urgentByDefault: false,
@@ -54,6 +57,7 @@ export const GTD: Record<GtdCategory, GtdMeta> = {
     label: "Next Action",
     short: "NEXT",
     color: "var(--tl-grep)",
+    glyph: "⚔️",
     desc: "Things you can do right now",
     cell: { x: 1, y: 0 },
     urgentByDefault: true,
@@ -63,6 +67,7 @@ export const GTD: Record<GtdCategory, GtdMeta> = {
     label: "Calendar",
     short: "CAL",
     color: "var(--tl-read)",
+    glyph: "🏰",
     desc: "Tasks tied to a specific date",
     cell: { x: 2, y: 0 },
     urgentByDefault: true,
@@ -72,6 +77,7 @@ export const GTD: Record<GtdCategory, GtdMeta> = {
     label: "Someday",
     short: "SDM",
     color: "var(--tl-edit)",
+    glyph: "🌫️",
     desc: "Things you might do later",
     cell: { x: 0, y: 1 },
     urgentByDefault: false,
@@ -81,6 +87,7 @@ export const GTD: Record<GtdCategory, GtdMeta> = {
     label: "Waiting",
     short: "WAIT",
     color: "var(--tl-done)",
+    glyph: "⏳",
     desc: "Waiting on someone else",
     cell: { x: 1, y: 1 },
     urgentByDefault: false,

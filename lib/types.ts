@@ -90,4 +90,4 @@ export interface LogEntry {
   text: string;
 }
 
-export type Tab = "quests" | "map" | "shop" | "collection" | "daily";
+export type Tab = "map" | "story" | "shop" | "collection";

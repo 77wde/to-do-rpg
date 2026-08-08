@@ -1,59 +1,38 @@
 "use client";
 import { useStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
+
+const TONE_CLASS = {
+  reward: "bg-foreground text-canvas",
+  level: "bg-primary text-primary-foreground",
+  bad: "bg-destructive text-white",
+} as const;
 
 export default function Toasts() {
   const { toasts } = useStore();
+
   return (
-    <div className="toast-wrap" aria-live="polite">
+    // Pinned inside the phone shell rather than the viewport, so toasts stay
+    // over the app instead of drifting into the desktop bezel.
+    <div
+      // Sits above the bottom tab bar rather than behind it.
+      className="pointer-events-none fixed bottom-24 left-1/2 z-60 flex w-full max-w-[430px] -translate-x-1/2 flex-col items-center gap-2.5 px-4"
+      aria-live="polite"
+    >
       {toasts.map((t) => (
-        <div key={t.id} className={`toast toast-${t.tone}`}>
-          <span className="glyph" aria-hidden>
+        <div
+          key={t.id}
+          className={cn(
+            "inline-flex animate-[pop_0.24s_cubic-bezier(0.22,1,0.36,1)_both] items-center gap-2.5 border-[3px] border-foreground px-4 py-2.5 text-sm font-semibold shadow-[4px_4px_0_0_var(--foreground)]",
+            TONE_CLASS[t.tone],
+          )}
+        >
+          <span className="text-lg" aria-hidden>
             {t.glyph}
           </span>
           <span>{t.text}</span>
         </div>
       ))}
-      <style jsx>{`
-        .toast-wrap {
-          position: fixed;
-          left: 50%;
-          bottom: 28px;
-          transform: translateX(-50%);
-          z-index: 60;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          align-items: center;
-          pointer-events: none;
-        }
-        .toast {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          background: var(--ink);
-          color: var(--canvas);
-          padding: 10px 18px;
-          border-radius: var(--r-pill);
-          font-weight: 600;
-          font-size: 14px;
-          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-          animation: pop 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        .toast .glyph {
-          font-size: 18px;
-        }
-        .toast-reward {
-          background: var(--ink);
-        }
-        .toast-level {
-          background: var(--primary);
-          color: var(--on-primary);
-        }
-        .toast-bad {
-          background: var(--error);
-          color: #fff;
-        }
-      `}</style>
     </div>
   );
 }
