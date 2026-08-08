@@ -153,9 +153,11 @@ cp .env_template .env.local
 - 확인 링크 처리 — [`app/auth/confirm/route.ts`](app/auth/confirm/route.ts)
 - RLS 포함 스키마 — [`supabase/migrations/`](supabase/migrations/)
 
+- 게임 상태 저장 — [`lib/supabase/gameRepo.ts`](lib/supabase/gameRepo.ts)
+  (로그인 시 DB, 미설정 시 localStorage)
+- 첫 로그인 시 닉네임을 받아 `players` 행 생성
+
 아직 안 된 것:
 
-- **게임 상태는 여전히 localStorage에 저장됩니다.** 로그인은 붙었지만
-  `lib/store.tsx` 는 아직 DB를 읽고 쓰지 않습니다. 스키마·RLS·클라이언트가
-  준비된 상태라, 실제 프로젝트 키가 생긴 뒤 연결하면 됩니다.
-- 로그인 사용자의 `players` 행 생성(닉네임 입력) 흐름
+- 여러 기기에서 같은 계정을 동시에 열면 마지막 쓰기가 이깁니다 (충돌 해결 없음)
+- 쓰기 실패 시 알림만 하고 재시도 큐는 없습니다

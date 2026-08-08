@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
@@ -33,7 +33,7 @@ function friendlyError(raw: string): string {
 
 export default function StartPage() {
   const router = useRouter();
-  const { state, resume, start } = useStore();
+  const { state, ready, loggedIn, needsNickname, resume, start } = useStore();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -59,7 +59,21 @@ export default function StartPage() {
   const [askName, setAskName] = useState(false);
   const [nickname, setNickname] = useState("Hero");
 
-  /** Shared by local play and a successful sign-in. */
+  /**
+   * Cloud mode: signing in only starts the work. The store then loads the
+   * save asynchronously, so routing waits on its result rather than on the
+   * sign-in call returning.
+   */
+  useEffect(() => {
+    if (!isSupabaseConfigured || !ready) return;
+    if (needsNickname) {
+      setAskName(true);
+      return;
+    }
+    if (loggedIn) router.push("/play");
+  }, [ready, needsNickname, loggedIn, router]);
+
+  /** Local mode only — cloud sign-in is routed by the effect above. */
   function enterGame() {
     if (state) {
       // saved adventure → resume it
@@ -96,20 +110,22 @@ export default function StartPage() {
       mode === "signup"
         ? await signUpWithEmail(email.trim(), password)
         : await signInWithEmail(email.trim(), password);
-    setBusy(false);
 
     if (result.error) {
+      setBusy(false);
       showError(friendlyError(result.error));
       // Preselect so a retry is just typing, no clearing first.
       passwordRef.current?.select();
       return;
     }
     if (result.needsEmailConfirmation) {
+      setBusy(false);
       setSentTo(email.trim());
       setPassword("");
       return;
     }
-    enterGame();
+    // Signed in. Stay busy — the store is still loading the save, and the
+    // effect above routes once it knows whether a nickname is needed.
   }
 
   function switchMode(next: Mode) {

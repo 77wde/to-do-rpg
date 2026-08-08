@@ -16,8 +16,12 @@ export function todayStr(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Ids double as primary keys in Postgres, where the columns are `uuid` — a
+ * random base36 string would be rejected on insert.
+ */
 export function uid(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  return crypto.randomUUID();
 }
 
 export function newPlayer(nickname: string): Player {

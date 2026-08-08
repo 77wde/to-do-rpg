@@ -27,6 +27,8 @@ import {
   pushLog,
 } from "./game";
 import { signOut } from "./supabase/auth";
+import { createClient, isSupabaseConfigured } from "./supabase/client";
+import { createGame, deleteGame, loadGameState, syncState } from "./supabase/gameRepo";
 import type { GameState, GtdCategory, Quest, ShopItem } from "./types";
 
 // ---- Actions --------------------------------------------------------------
@@ -132,6 +134,11 @@ interface StoreCtx {
   ready: boolean;
   /** true when a save exists AND the user is logged in this browser */
   loggedIn: boolean;
+  /**
+   * Cloud mode only: signed in, but the account has no save yet. The start
+   * screen uses this to ask for a nickname before creating one.
+   */
+  needsNickname: boolean;
   toasts: Toast[];
   start: (nickname: string) => void;
   /** resume the saved adventure without wiping it */
@@ -157,12 +164,38 @@ const Ctx = createContext<StoreCtx | null>(null);
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, null);
   const [ready, setReady] = useState(false);
+  /** Local mode only — cloud mode derives this from the auth session. */
   const [session, setSession] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [needsNickname, setNeedsNickname] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevLevel = useRef<number | null>(null);
+  /** Last state known to be in the database — the baseline for the next diff. */
+  const synced = useRef<GameState | null>(null);
+  /** Serializes writes so a burst of actions cannot land out of order. */
+  const writes = useRef<Promise<void>>(Promise.resolve());
 
-  // hydrate from localStorage once
+  const toast = useCallback((t: Omit<Toast, "id">) => {
+    const id = crypto.randomUUID();
+    setToasts((cur) => [...cur, { ...t, id }]);
+    setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 2600);
+  }, []);
+
+  const queueWrite = useCallback(
+    (run: () => Promise<void>, failure: string) => {
+      writes.current = writes.current
+        .then(run)
+        .catch((err) => {
+          console.error(`[questlog] ${failure}`, err);
+          toast({ glyph: "⚠️", text: failure, tone: "bad" });
+        });
+    },
+    [toast],
+  );
+
+  // ---- Local mode: hydrate from localStorage once -------------------------
   useEffect(() => {
+    if (isSupabaseConfigured) return;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -179,24 +212,95 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setReady(true);
   }, []);
 
-  // persist on every change
+  // ---- Cloud mode: follow the auth session --------------------------------
   useEffect(() => {
-    if (!ready) return;
+    if (!isSupabaseConfigured) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    let alive = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!alive) return;
+      setUserId(data.user?.id ?? null);
+      // Signed out: nothing to load, so the app is ready right away.
+      if (!data.user) setReady(true);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      const id = authSession?.user?.id ?? null;
+      setUserId(id);
+      if (!id) {
+        dispatch({ type: "reset" });
+        synced.current = null;
+        setNeedsNickname(false);
+        setReady(true);
+      }
+    });
+
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  // ---- Cloud mode: load the save for the signed-in user -------------------
+  useEffect(() => {
+    if (!isSupabaseConfigured || !userId) return;
+    let alive = true;
+    setReady(false);
+
+    loadGameState(userId)
+      .then((loaded) => {
+        if (!alive) return;
+        if (!loaded) {
+          // Signed in with no save — the start screen asks for a nickname.
+          setNeedsNickname(true);
+          setReady(true);
+          return;
+        }
+        const withReset = applyDailyReset(loaded);
+        // Baseline is what the database actually holds, so any delta the daily
+        // reset produced gets written back by the sync effect below.
+        synced.current = loaded;
+        prevLevel.current = withReset.player.level;
+        dispatch({ type: "hydrate", state: withReset });
+        setNeedsNickname(false);
+        setReady(true);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        console.error("[questlog] could not load your save", err);
+        toast({ glyph: "⚠️", text: "Could not load your save.", tone: "bad" });
+        setReady(true);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [userId, toast]);
+
+  // ---- Local mode: persist on every change --------------------------------
+  useEffect(() => {
+    if (isSupabaseConfigured || !ready) return;
     if (state) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     else localStorage.removeItem(STORAGE_KEY);
   }, [state, ready]);
 
-  // persist the session flag
+  // ---- Local mode: persist the session flag -------------------------------
   useEffect(() => {
-    if (!ready) return;
+    if (isSupabaseConfigured || !ready) return;
     localStorage.setItem(SESSION_KEY, session ? "1" : "0");
   }, [session, ready]);
 
-  const toast = useCallback((t: Omit<Toast, "id">) => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((cur) => [...cur, { ...t, id }]);
-    setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 2600);
-  }, []);
+  // ---- Cloud mode: push whatever changed ----------------------------------
+  useEffect(() => {
+    if (!isSupabaseConfigured || !ready || !userId || !state) return;
+    const base = synced.current;
+    // No baseline yet means the save is still being created by start().
+    if (!base || base === state) return;
+    synced.current = state;
+    queueWrite(() => syncState(userId, base, state), "Changes could not be saved.");
+  }, [state, ready, userId, queueWrite]);
 
   // watch level for level-up toast
   useEffect(() => {
@@ -214,22 +318,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       state,
       ready,
-      loggedIn: !!state && session,
+      loggedIn: isSupabaseConfigured ? !!userId && !!state : !!state && session,
+      needsNickname,
       toasts,
       toast,
       start: (nickname) => {
-        dispatch({ type: "start", nickname });
-        setSession(true);
+        if (!isSupabaseConfigured) {
+          dispatch({ type: "start", nickname });
+          setSession(true);
+          return;
+        }
+        if (!userId) return;
+        // Build the save once and reuse that exact object: dispatching "start"
+        // would call newGame() again and mint different quest ids than the
+        // ones written to the database.
+        const fresh = newGame(nickname);
+        synced.current = fresh;
+        prevLevel.current = fresh.player.level;
+        dispatch({ type: "hydrate", state: fresh });
+        setNeedsNickname(false);
+        queueWrite(() => createGame(userId, fresh), "Could not create your save.");
       },
       resume: () => setSession(true),
       logout: () => {
-        setSession(false);
-        // No-op until Supabase is configured.
+        if (!isSupabaseConfigured) {
+          setSession(false);
+          return;
+        }
+        // onAuthStateChange clears the local state once the session is gone.
         void signOut();
       },
       reset: () => {
         dispatch({ type: "reset" });
-        setSession(false);
+        synced.current = null;
+        if (!isSupabaseConfigured) {
+          setSession(false);
+          return;
+        }
+        setNeedsNickname(true);
+        if (userId) {
+          queueWrite(() => deleteGame(userId), "Could not delete your save.");
+        }
       },
       addQuest: (quest) => dispatch({ type: "addQuest", quest }),
       completeQuest: (questId) => {
@@ -255,7 +384,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       equipSkin: (id) => dispatch({ type: "equipSkin", skinId: id }),
       equipTitle: (id) => dispatch({ type: "equipTitle", titleId: id }),
     }),
-    [state, ready, session, toasts, toast],
+    [state, ready, session, userId, needsNickname, toasts, toast, queueWrite],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
