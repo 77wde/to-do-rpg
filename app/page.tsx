@@ -22,6 +22,8 @@ export default function StartPage() {
   const [busy, setBusy] = useState(false);
   /** Set after sign-up when the account still needs the emailed link. */
   const [sentTo, setSentTo] = useState<string | null>(null);
+  /** Kept past `sentTo` so returning to the form does not blank the address. */
+  const [lastEmail, setLastEmail] = useState("");
   /** Nickname entry is a second step, shown only for a brand-new adventure. */
   const [askName, setAskName] = useState(false);
   const [nickname, setNickname] = useState("Hero");
@@ -113,7 +115,15 @@ export default function StartPage() {
             Login
           </Button>
         ) : (
-          <AuthForm busy={busy} setBusy={setBusy} onEmailConfirmationSent={setSentTo} />
+          <AuthForm
+            busy={busy}
+            setBusy={setBusy}
+            initialEmail={lastEmail}
+            onEmailConfirmationSent={(email) => {
+              setLastEmail(email);
+              setSentTo(email);
+            }}
+          />
         )}
       </div>
     </main>

@@ -128,7 +128,13 @@ export async function createGame(userId: string, state: GameState): Promise<void
  * the newest 40, and dropping older rows server-side would throw away history
  * for no gain.
  */
-export async function syncState(
+export function syncState(userId: string, prev: GameState, next: GameState): Promise<void> {
+  // Retried like the load: a write is just as exposed to the post-sign-in clock
+  // skew, and losing an edit to it is worse than waiting half a second.
+  return withRetry(() => syncStateOnce(userId, prev, next));
+}
+
+async function syncStateOnce(
   userId: string,
   prev: GameState,
   next: GameState,

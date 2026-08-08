@@ -55,6 +55,8 @@ export function useGamePersistence(
   const [loadAttempt, setLoadAttempt] = useState(0);
   /** Last state known to be in the database — the baseline for the next diff. */
   const synced = useRef<GameState | null>(null);
+  /** Who the last auth event reported, so an account switch can be spotted. */
+  const signedInAs = useRef<string | null>(null);
   /** Serializes writes so a burst of actions cannot land out of order. */
   const writes = useRef<Promise<void>>(Promise.resolve());
 
@@ -105,11 +107,19 @@ export function useGamePersistence(
     const { data: sub } = supabase.auth.onAuthStateChange((_event, authSession) => {
       const id = authSession?.user?.id ?? null;
       setUserId(id);
-      if (!id) {
-        dispatch({ type: "reset" });
-        synced.current = null;
-        setNeedsNickname(false);
-        setReady(true);
+      // Sign-out, but also a switch straight from one account to another (the
+      // auth cookie can be rewritten by another tab). Either way the save in
+      // memory belongs to the previous user: keeping it would show their data
+      // until the new one loads, and the sync effect would write it to the new
+      // user's rows in the meantime.
+      if (id !== signedInAs.current) {
+        if (signedInAs.current !== null || !id) {
+          dispatch({ type: "reset" });
+          synced.current = null;
+          setNeedsNickname(false);
+          setReady(true);
+        }
+        signedInAs.current = id;
       }
     });
 
@@ -170,11 +180,19 @@ export function useGamePersistence(
   // ---- Cloud mode: push whatever changed ----------------------------------
   useEffect(() => {
     if (!isSupabaseConfigured || !ready || !userId || !state) return;
-    const base = synced.current;
     // No baseline yet means the save is still being created by start().
-    if (!base || base === state) return;
-    synced.current = state;
-    queueWrite(() => syncState(userId, base, state), "Changes could not be saved.");
+    if (!synced.current || synced.current === state) return;
+    const target = state;
+    queueWrite(async () => {
+      // Read the baseline here rather than when the effect ran: writes are
+      // serialized, so by now every earlier write has settled and moved it.
+      const base = synced.current;
+      if (!base || base === target) return;
+      await syncState(userId, base, target);
+      // Only now — if the write threw, the baseline stays put so this delta is
+      // included in the next diff instead of being lost for good.
+      synced.current = target;
+    }, "Changes could not be saved.");
   }, [state, ready, userId, queueWrite]);
 
   const retryLoad = useCallback(() => setLoadAttempt((n) => n + 1), []);

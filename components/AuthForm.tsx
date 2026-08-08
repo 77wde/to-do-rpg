@@ -37,15 +37,21 @@ function friendlyError(raw: string): string {
 export default function AuthForm({
   busy,
   setBusy,
+  initialEmail = "",
   onEmailConfirmationSent,
 }: {
   /** True while the store is still loading the save after a successful sign-in. */
   busy: boolean;
   setBusy: (v: boolean) => void;
+  /**
+   * Prefill. The form unmounts while the "check your inbox" notice is up, so
+   * without this, coming back from it would blank the address just typed.
+   */
+  initialEmail?: string;
   onEmailConfirmationSent: (email: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   /**
