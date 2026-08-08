@@ -14,10 +14,10 @@ export default function CollectionView() {
     <div className="col" style={{ gap: 20 }}>
       <div className="col" style={{ gap: 4 }}>
         <h2 className="display-sm" style={{ margin: 0 }}>
-          수집 · 칭호
+          Collection · Titles
         </h2>
         <p className="caption" style={{ margin: 0 }}>
-          레벨을 올리면 상점에서 살 수 없는 특별한 수집품과 칭호가 잠금해제됩니다.
+          Level up to unlock special collectibles and titles no shop can sell.
         </p>
       </div>
 
@@ -25,10 +25,10 @@ export default function CollectionView() {
         <div className="card next-unlock">
           <div className="row between wrap" style={{ gap: 8 }}>
             <span>
-              다음 잠금해제: <b>{nextLocked.glyph} {nextLocked.name}</b> — Lv.{nextLocked.unlockLevel}
+              Next unlock: <b>{nextLocked.glyph} {nextLocked.name}</b> — Lv.{nextLocked.unlockLevel}
             </span>
             <span className="caption mono">
-              현재 Lv.{p.level} · {p.xp}/{xpToNext(p.level)} XP
+              Currently Lv.{p.level} · {p.xp}/{xpToNext(p.level)} XP
             </span>
           </div>
         </div>
@@ -45,9 +45,9 @@ export default function CollectionView() {
               <div className="col grow" style={{ gap: 2 }}>
                 <div className="row between">
                   <span className="title-sm">{unlocked ? c.name : "???"}</span>
-                  <span className="badge">{isTitle ? "칭호" : "트로피"}</span>
+                  <span className="badge">{isTitle ? "Title" : "Trophy"}</span>
                 </div>
-                <span className="caption">{unlocked ? c.desc : `Lv.${c.unlockLevel}에 잠금해제`}</span>
+                <span className="caption">{unlocked ? c.desc : `Unlocks at Lv.${c.unlockLevel}`}</span>
               </div>
               {unlocked && isTitle && (
                 <button
@@ -59,7 +59,7 @@ export default function CollectionView() {
                   }
                   onClick={() => equipTitle(equipped ? null : c.id)}
                 >
-                  {equipped ? "✓ 칭호 착용 중 (해제)" : "칭호 착용"}
+                  {equipped ? "✓ Title equipped (unequip)" : "Equip title"}
                 </button>
               )}
               {!unlocked && (

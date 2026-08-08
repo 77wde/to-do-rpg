@@ -87,7 +87,7 @@ function reducer(state: GameState | null, action: Action): GameState | null {
         gold: state.player.gold - item.price,
         owned: already ? state.player.owned : [...state.player.owned, item.id],
       };
-      return pushLog({ ...state, player }, "buy", `상점에서 ${item.glyph} ${item.name} 구매! -${item.price} G`);
+      return pushLog({ ...state, player }, "buy", `Bought ${item.glyph} ${item.name} from the shop! -${item.price} G`);
     }
     case "useItem": {
       const id = action.itemId;
@@ -97,7 +97,7 @@ function reducer(state: GameState | null, action: Action): GameState | null {
           { ...state.player, owned: state.player.owned.filter((x) => x !== id) },
           30,
         );
-        return pushLog({ ...state, player }, "reward", `🧪 회복 물약 사용! HP +30`);
+        return pushLog({ ...state, player }, "reward", `🧪 Used a Health Potion! HP +30`);
       }
       return state;
     }
@@ -204,7 +204,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (prevLevel.current !== null && state.player.level > prevLevel.current) {
-      toast({ glyph: "✨", text: `레벨 업! Lv.${state.player.level}`, tone: "level" });
+      toast({ glyph: "✨", text: `Level up! Lv.${state.player.level}`, tone: "level" });
     }
     prevLevel.current = state.player.level;
   }, [state, toast]);
@@ -236,15 +236,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       moveQuest: (questId, category) => dispatch({ type: "moveQuest", questId, category }),
       focusFail: (questTitle) => {
         dispatch({ type: "focusFail", questTitle });
-        toast({ glyph: "💥", text: `집중 실패 · HP 감소`, tone: "bad" });
+        toast({ glyph: "💥", text: `Focus failed · HP down`, tone: "bad" });
       },
       grantGold: (gold, why) => {
         dispatch({ type: "grantGold", gold, why });
-        toast({ glyph: "🚩", text: `깃발 통과! +${gold} G`, tone: "reward" });
+        toast({ glyph: "🚩", text: `Flag passed! +${gold} G`, tone: "reward" });
       },
       buy: (item) => {
         dispatch({ type: "buy", item });
-        toast({ glyph: item.glyph, text: `${item.name} 구매!`, tone: "reward" });
+        toast({ glyph: item.glyph, text: `Bought ${item.name}!`, tone: "reward" });
       },
       useItem: (id) => dispatch({ type: "useItem", itemId: id }),
       equipSkin: (id) => dispatch({ type: "equipSkin", skinId: id }),

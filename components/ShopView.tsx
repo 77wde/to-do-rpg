@@ -4,9 +4,9 @@ import { CONSUMABLE_IDS, SHOP } from "@/lib/constants";
 import type { ShopItem } from "@/lib/types";
 
 const KIND_LABEL: Record<ShopItem["kind"], string> = {
-  skin: "캐릭터 스킨",
-  item: "소모품",
-  companion: "동료",
+  skin: "Character Skins",
+  item: "Consumables",
+  companion: "Companions",
 };
 
 export default function ShopView() {
@@ -21,10 +21,10 @@ export default function ShopView() {
       <div className="row between wrap" style={{ gap: 12 }}>
         <div className="col" style={{ gap: 4 }}>
           <h2 className="display-sm" style={{ margin: 0 }}>
-            상점
+            Shop
           </h2>
           <p className="caption" style={{ margin: 0 }}>
-            퀘스트로 모은 골드로 스킨·동료·아이템을 사보세요.
+            Spend the gold you earned from quests on skins, companions, and items.
           </p>
         </div>
         <span className="gold-big row">🪙 <b className="mono">{p.gold.toLocaleString()}</b> G</span>
@@ -50,7 +50,7 @@ export default function ShopView() {
                     <div className="row between">
                       <span className="title-sm">{item.name}</span>
                       {item.price === 0 ? (
-                        <span className="caption">기본</span>
+                        <span className="caption">Default</span>
                       ) : (
                         <span className="mono" style={{ color: "var(--gold)", fontWeight: 600 }}>
                           {item.price} G
@@ -60,7 +60,7 @@ export default function ShopView() {
                     <span className="caption">{item.desc}</span>
                     {item.reqLevel && (
                       <span className="caption" style={{ color: locked ? "var(--error)" : "var(--success)" }}>
-                        Lv.{item.reqLevel} 필요
+                        Requires Lv.{item.reqLevel}
                       </span>
                     )}
                   </div>
@@ -82,7 +82,7 @@ export default function ShopView() {
                           onClick={() => equipSkin(item.id)}
                           disabled={equipped}
                         >
-                          {equipped ? "✓ 착용 중" : "착용하기"}
+                          {equipped ? "✓ Equipped" : "Equip"}
                         </button>
                       ) : (
                         <button
@@ -90,7 +90,7 @@ export default function ShopView() {
                           onClick={() => buy(item)}
                           disabled={!canAfford}
                         >
-                          {canAfford ? "구매" : "골드 부족"}
+                          {canAfford ? "Buy" : "Not enough gold"}
                         </button>
                       )
                     ) : consumable ? (
@@ -100,22 +100,22 @@ export default function ShopView() {
                           onClick={() => buy(item)}
                           disabled={!canAfford}
                         >
-                          {canAfford ? "구매" : "골드 부족"}
+                          {canAfford ? "Buy" : "Not enough gold"}
                         </button>
                         {owned && item.id === "item-potion" && (
                           <button className="btn btn-secondary btn-sm btn-block" onClick={() => useItem(item.id)}>
-                            🧪 사용 (HP+30)
+                            🧪 Use (HP+30)
                           </button>
                         )}
                         {owned && item.id === "item-shield" && (
                           <span className="caption" style={{ textAlign: "center", color: "var(--success)" }}>
-                            🛡️ 보유 중 (자동 방어)
+                            🛡️ Owned (auto-defends)
                           </span>
                         )}
                       </div>
                     ) : owned ? (
                       <button className="btn btn-sm btn-block" style={{ background: "var(--success)", color: "#fff" }} disabled>
-                        ✓ 보유 중
+                        ✓ Owned
                       </button>
                     ) : (
                       <button
@@ -123,7 +123,7 @@ export default function ShopView() {
                         onClick={() => buy(item)}
                         disabled={!canAfford}
                       >
-                        {canAfford ? "구매" : "골드 부족"}
+                        {canAfford ? "Buy" : "Not enough gold"}
                       </button>
                     )}
                   </div>

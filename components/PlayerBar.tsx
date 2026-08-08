@@ -24,7 +24,7 @@ export default function PlayerBar() {
               <strong style={{ fontWeight: 600 }}>{p.nickname}</strong>
               <span className="badge">Lv.{p.level}</span>
             </div>
-            <span className="caption">{p.streak > 0 ? `🔥 연속 ${p.streak}일` : "오늘도 시작해봐요"}</span>
+            <span className="caption">{p.streak > 0 ? `🔥 ${p.streak}-day streak` : "Let's get started today"}</span>
           </div>
         </div>
 
@@ -32,7 +32,7 @@ export default function PlayerBar() {
         <div className="col grow" style={{ minWidth: 180, maxWidth: 320, gap: 6 }}>
           <div className="row between">
             <span className="caption-upper" style={{ color: "var(--muted)" }}>
-              경험치
+              XP
             </span>
             <span className="caption mono">
               {p.xp} / {need}
@@ -47,7 +47,7 @@ export default function PlayerBar() {
         <div className="col" style={{ minWidth: 150, maxWidth: 240, flex: 1, gap: 6 }}>
           <div className="row between">
             <span className="caption-upper" style={{ color: "var(--muted)" }}>
-              체력
+              HP
             </span>
             <span className="caption mono">
               {p.hp} / {p.maxHp}
@@ -59,7 +59,7 @@ export default function PlayerBar() {
         </div>
 
         {/* Gold */}
-        <div className="gold-chip" title="보유 골드">
+        <div className="gold-chip" title="Gold">
           <span aria-hidden>🪙</span>
           <span className="mono" style={{ fontWeight: 600 }}>
             {p.gold.toLocaleString()}
@@ -67,15 +67,15 @@ export default function PlayerBar() {
         </div>
 
         <div className="row" style={{ gap: 4 }}>
-          <button className="btn btn-secondary btn-sm" onClick={logout} title="로그아웃 (저장은 유지)">
-            로그아웃
+          <button className="btn btn-secondary btn-sm" onClick={logout} title="Log out (save is kept)">
+            Log out
           </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => {
-              if (confirm("정말 처음부터 다시 시작할까요? 저장된 모험이 삭제됩니다.")) reset();
+              if (confirm("Start over from scratch? Your saved adventure will be deleted.")) reset();
             }}
-            title="새 게임 (저장 삭제)"
+            title="New game (deletes save)"
           >
             ↺
           </button>

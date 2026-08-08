@@ -29,9 +29,9 @@ const jbMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QuestLog — 할 일을 퀘스트로",
+  title: "QuestLog — Turn tasks into quests",
   description:
-    "산만하고 회피형인 사람들을 위한 RPG 기반 To-Do 리스트. 할 일을 완료하면 경험치와 골드를 얻어 레벨업하세요.",
+    "An RPG-based to-do list for easily distracted, avoidant minds. Complete tasks to earn XP and gold, and level up.",
 };
 
 export const viewport: Viewport = {

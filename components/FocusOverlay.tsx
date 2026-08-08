@@ -121,10 +121,10 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
         {/* header */}
         <div className="row between" style={{ marginBottom: 4 }}>
           <span className="caption-upper" style={{ color: "var(--muted)" }}>
-            집중 세션 · 뽀모도로
+            Focus session · Pomodoro
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setFast((f) => !f)} title="데모용 빠른 속도">
-            {fast ? "🐇 데모 속도 ON" : "🐢 실제 속도"}
+          <button className="btn btn-ghost btn-sm" onClick={() => setFast((f) => !f)} title="Fast speed for demo">
+            {fast ? "🐇 Demo speed ON" : "🐢 Real speed"}
           </button>
         </div>
 
@@ -136,7 +136,7 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
             {fmt(remaining)}
           </span>
           <span className="caption">
-            남은 시간 · 목표 {quest.estimateMin}분
+            Time left · target {quest.estimateMin} min
           </span>
         </div>
 
@@ -172,12 +172,12 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
         <div className="row between" style={{ margin: "14px 0 6px" }}>
           <span className="caption">
             {phase === "won"
-              ? "🏁 결승선 도착!"
+              ? "🏁 Reached the finish line!"
               : phase === "lost"
-                ? "💥 가시에 따라잡혔습니다"
+                ? "💥 Caught by the spikes"
                 : danger
-                  ? "⚠️ 가시가 바짝 쫓아오고 있어요!"
-                  : "가시와의 거리 — 집중을 멈추면 좁혀집니다"}
+                  ? "⚠️ The spikes are right behind you!"
+                  : "Distance from the spikes — it shrinks if you stop focusing"}
           </span>
           <span className="caption mono">{Math.round(gap * 100)}%</span>
         </div>
@@ -195,29 +195,29 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
           {phase === "running" && (
             <>
               <button className="btn btn-secondary" onClick={() => setPhase("paused")}>
-                ⏸ 일시정지
+                ⏸ Pause
               </button>
               <button className="btn btn-primary" onClick={() => finish(true)}>
-                ✓ 완료했어요!
+                ✓ I did it!
               </button>
               <button className="btn btn-ghost" onClick={() => finish(false)}>
-                포기
+                Give up
               </button>
             </>
           )}
           {phase === "paused" && (
             <>
               <div className="caption" style={{ width: "100%", textAlign: "center", color: "var(--error)" }}>
-                ⏸ 멈춰있는 동안 가시가 다가옵니다. 어서 재개하세요!
+                ⏸ The spikes close in while you're stopped. Resume quickly!
               </div>
               <button className="btn btn-primary" onClick={() => setPhase("running")}>
-                ▶ 재개
+                ▶ Resume
               </button>
               <button className="btn btn-primary" onClick={() => finish(true)}>
-                ✓ 완료했어요!
+                ✓ I did it!
               </button>
               <button className="btn btn-ghost" onClick={() => finish(false)}>
-                포기
+                Give up
               </button>
             </>
           )}
@@ -227,13 +227,13 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
                 🎉
               </div>
               <p className="title-md" style={{ margin: "0 0 4px" }}>
-                퀘스트 완료!
+                Quest complete!
               </p>
               <p className="caption" style={{ margin: "0 0 16px" }}>
-                +{quest.xpReward} XP · +{quest.goldReward} G 획득
+                Earned +{quest.xpReward} XP · +{quest.goldReward} G
               </p>
               <button className="btn btn-primary" onClick={onClose}>
-                계속하기 →
+                Continue →
               </button>
             </div>
           )}
@@ -241,13 +241,13 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
             <div className="result">
               <div className="result-emoji">😵</div>
               <p className="title-md" style={{ margin: "0 0 4px" }}>
-                집중 실패
+                Focus failed
               </p>
               <p className="caption" style={{ margin: "0 0 16px" }}>
-                가시에 닿아 체력이 줄었어요. 다시 도전해보세요!
+                The spikes hit you and HP dropped. Give it another try!
               </p>
               <button className="btn btn-secondary" onClick={onClose}>
-                닫기
+                Close
               </button>
             </div>
           )}

@@ -14,7 +14,7 @@ export default function StartPage() {
       resume();
     } else {
       // new adventure → ask for a nickname (minimal splash, no form)
-      const name = (window.prompt("닉네임을 입력하세요", "용사") || "").trim();
+      const name = (window.prompt("Enter your nickname", "Hero") || "").trim();
       if (!name) return;
       start(name);
     }

@@ -52,7 +52,7 @@ export default function QuestsView({ onFocus }: { onFocus: (q: Quest) => void })
           <input
             className="input grow"
             style={{ minWidth: 200 }}
-            placeholder="새 퀘스트… 예) 책 30페이지 읽기"
+            placeholder="New quest… e.g. Read 30 pages of a book"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
@@ -74,25 +74,25 @@ export default function QuestsView({ onFocus }: { onFocus: (q: Quest) => void })
             style={{ width: 110 }}
             value={estimate}
             onChange={(e) => setEstimate(Number(e.target.value))}
-            title="예상 집중 시간(뽀모도로 길이)"
+            title="Estimated focus time (pomodoro length)"
           >
             {[5, 10, 15, 20, 25, 30].map((m) => (
               <option key={m} value={m}>
-                {m}분
+                {m} min
               </option>
             ))}
           </select>
           <button type="submit" className="btn btn-primary" disabled={!title.trim()}>
-            + 추가
+            + Add
           </button>
         </div>
         <div className="row between" style={{ marginTop: 12 }}>
           <label className="row" style={{ gap: 8, cursor: "pointer", fontSize: 13, color: "var(--body)" }}>
             <input type="checkbox" checked={isDaily} onChange={(e) => setIsDaily(e.target.checked)} />
-            ☀️ 매일 반복(데일리) · 미완료 시 패널티
+            ☀️ Repeat daily · penalty if missed
           </label>
           <span className="caption mono">
-            보상 예상 +{suggestReward(estimate).xp} XP · +{suggestReward(estimate).gold} G
+            Est. reward +{suggestReward(estimate).xp} XP · +{suggestReward(estimate).gold} G
           </span>
         </div>
       </form>
@@ -100,7 +100,7 @@ export default function QuestsView({ onFocus }: { onFocus: (q: Quest) => void })
       {/* Filter chips */}
       <div className="row wrap" style={{ gap: 8 }}>
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
-          전체 {todo.length}
+          All {todo.length}
         </FilterChip>
         {GTD_ORDER.map((k) => {
           const n = todo.filter((q) => q.category === k).length;
@@ -111,13 +111,13 @@ export default function QuestsView({ onFocus }: { onFocus: (q: Quest) => void })
           );
         })}
         <FilterChip active={filter === "done"} onClick={() => setFilter("done")}>
-          완료 {doneList.length}
+          Done {doneList.length}
         </FilterChip>
       </div>
 
       {/* Lists */}
       {filter === "done" ? (
-        <Section title="완료한 퀘스트" quests={doneList} onFocus={onFocus} emptyText="아직 완료한 퀘스트가 없어요." />
+        <Section title="Completed" quests={doneList} onFocus={onFocus} emptyText="No completed quests yet." />
       ) : (
         visibleCats.map((k) => {
           const list = todo.filter((q) => q.category === k);
@@ -130,7 +130,7 @@ export default function QuestsView({ onFocus }: { onFocus: (q: Quest) => void })
               color={GTD[k].color}
               quests={list}
               onFocus={onFocus}
-              emptyText="이 분류엔 퀘스트가 없어요."
+              emptyText="No quests in this category."
             />
           );
         })
@@ -138,7 +138,7 @@ export default function QuestsView({ onFocus }: { onFocus: (q: Quest) => void })
 
       {filter === "all" && todo.length === 0 && (
         <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 40 }}>
-          🎉 모든 퀘스트를 비웠어요! 새 퀘스트를 추가해보세요.
+          🎉 All quests cleared! Try adding a new one.
         </div>
       )}
 

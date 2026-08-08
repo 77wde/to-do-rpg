@@ -42,46 +42,46 @@ export interface GtdMeta {
 export const GTD: Record<GtdCategory, GtdMeta> = {
   inbox: {
     key: "inbox",
-    label: "인박스",
+    label: "Inbox",
     short: "IN",
     color: "var(--tl-thinking)",
-    desc: "아직 분류 안 된 새 할 일",
+    desc: "Uncategorized new tasks",
     cell: { x: 0, y: 0 },
     urgentByDefault: false,
   },
   "next-action": {
     key: "next-action",
-    label: "다음 행동",
+    label: "Next Action",
     short: "NEXT",
     color: "var(--tl-grep)",
-    desc: "지금 당장 할 수 있는 일",
+    desc: "Things you can do right now",
     cell: { x: 1, y: 0 },
     urgentByDefault: true,
   },
   calendar: {
     key: "calendar",
-    label: "캘린더",
+    label: "Calendar",
     short: "CAL",
     color: "var(--tl-read)",
-    desc: "특정 날짜에 해야 하는 일",
+    desc: "Tasks tied to a specific date",
     cell: { x: 2, y: 0 },
     urgentByDefault: true,
   },
   "someday-maybe": {
     key: "someday-maybe",
-    label: "언젠가",
+    label: "Someday",
     short: "SDM",
     color: "var(--tl-edit)",
-    desc: "나중에 할지도 모르는 일",
+    desc: "Things you might do later",
     cell: { x: 0, y: 1 },
     urgentByDefault: false,
   },
   "waiting-for": {
     key: "waiting-for",
-    label: "대기 중",
+    label: "Waiting",
     short: "WAIT",
     color: "var(--tl-done)",
-    desc: "남을 기다려야 하는 일",
+    desc: "Waiting on someone else",
     cell: { x: 1, y: 1 },
     urgentByDefault: false,
   },
@@ -98,15 +98,15 @@ export const GTD_ORDER: GtdCategory[] = [
 // ---- Shop -----------------------------------------------------------------
 
 export const SHOP: ShopItem[] = [
-  { id: "skin-knight", name: "기사", desc: "기본기가 탄탄한 용사", price: 0, kind: "skin", glyph: "🧑‍🚀" },
-  { id: "skin-mage", name: "마법사", desc: "지혜의 로브를 걸친 자", price: 120, kind: "skin", glyph: "🧙" },
-  { id: "skin-ninja", name: "닌자", desc: "그림자처럼 빠르게", price: 200, kind: "skin", glyph: "🥷" },
-  { id: "skin-hero", name: "슈퍼히어로", desc: "미룰 시간이 없다", price: 320, kind: "skin", glyph: "🦸" },
-  { id: "skin-vampire", name: "뱀파이어", desc: "밤에 강해지는 집중가", price: 300, kind: "skin", glyph: "🧛", reqLevel: 4 },
-  { id: "item-potion", name: "회복 물약", desc: "즉시 HP +30", price: 40, kind: "item", glyph: "🧪" },
-  { id: "item-shield", name: "집중 방패", desc: "다음 실패 패널티 1회 방어", price: 80, kind: "item", glyph: "🛡️" },
-  { id: "comp-cat", name: "고양이 동료", desc: "옆에서 응원해주는 친구", price: 150, kind: "companion", glyph: "🐈" },
-  { id: "comp-dragon", name: "새끼 드래곤", desc: "골드 획득 +10%", price: 400, kind: "companion", glyph: "🐉", reqLevel: 5 },
+  { id: "skin-knight", name: "Knight", desc: "A well-rounded hero", price: 0, kind: "skin", glyph: "🧑‍🚀" },
+  { id: "skin-mage", name: "Mage", desc: "Cloaked in robes of wisdom", price: 120, kind: "skin", glyph: "🧙" },
+  { id: "skin-ninja", name: "Ninja", desc: "Fast as a shadow", price: 200, kind: "skin", glyph: "🥷" },
+  { id: "skin-hero", name: "Superhero", desc: "No time to procrastinate", price: 320, kind: "skin", glyph: "🦸" },
+  { id: "skin-vampire", name: "Vampire", desc: "Focus that grows at night", price: 300, kind: "skin", glyph: "🧛", reqLevel: 4 },
+  { id: "item-potion", name: "Health Potion", desc: "Instantly restore HP +30", price: 40, kind: "item", glyph: "🧪" },
+  { id: "item-shield", name: "Focus Shield", desc: "Blocks the next failure penalty once", price: 80, kind: "item", glyph: "🛡️" },
+  { id: "comp-cat", name: "Cat Companion", desc: "A friend cheering you on", price: 150, kind: "companion", glyph: "🐈" },
+  { id: "comp-dragon", name: "Baby Dragon", desc: "Gold gain +10%", price: 400, kind: "companion", glyph: "🐉", reqLevel: 5 },
 ];
 
 /** Items that are consumables (used up, can be repurchased). */
@@ -115,11 +115,11 @@ export const CONSUMABLE_IDS = new Set(["item-potion", "item-shield"]);
 // ---- Collection (level-locked) --------------------------------------------
 
 export const COLLECTIBLES: Collectible[] = [
-  { id: "title-starter", name: "첫 발걸음", desc: "여정을 시작한 자", glyph: "🌱", unlockLevel: 1, kind: "title" },
-  { id: "title-focused", name: "집중의 대가", desc: "산만함을 이겨낸 자", glyph: "🎯", unlockLevel: 3, kind: "title" },
-  { id: "trophy-crown", name: "황금 왕관", desc: "상점에서 살 수 없는 전설의 왕관", glyph: "👑", unlockLevel: 5, kind: "trophy" },
-  { id: "title-unstoppable", name: "멈출 수 없는", desc: "회피를 정복한 자", glyph: "⚡", unlockLevel: 7, kind: "title" },
-  { id: "trophy-phoenix", name: "불사조의 깃털", desc: "몇 번이고 다시 일어선 증표", glyph: "🪶", unlockLevel: 10, kind: "trophy" },
+  { id: "title-starter", name: "First Steps", desc: "One who began the journey", glyph: "🌱", unlockLevel: 1, kind: "title" },
+  { id: "title-focused", name: "Focus Master", desc: "One who conquered distraction", glyph: "🎯", unlockLevel: 3, kind: "title" },
+  { id: "trophy-crown", name: "Golden Crown", desc: "A legendary crown no shop can sell", glyph: "👑", unlockLevel: 5, kind: "trophy" },
+  { id: "title-unstoppable", name: "Unstoppable", desc: "One who conquered avoidance", glyph: "⚡", unlockLevel: 7, kind: "title" },
+  { id: "trophy-phoenix", name: "Phoenix Feather", desc: "A token of rising again and again", glyph: "🪶", unlockLevel: 10, kind: "trophy" },
 ];
 
 // ---- Reward suggestion helper --------------------------------------------

@@ -23,10 +23,10 @@ export default function DailyView({ onFocus }: { onFocus: (q: Quest) => void }) 
     <div className="col" style={{ gap: 20 }}>
       <div className="col" style={{ gap: 4 }}>
         <h2 className="display-sm" style={{ margin: 0 }}>
-          오늘의 퀘스트
+          Today's Quests
         </h2>
         <p className="caption" style={{ margin: 0 }}>
-          {today} · 매일 반복되는 데일리를 끝내면 연속 달성이 쌓여요.
+          {today} · Finish your daily quests to build up a streak.
         </p>
       </div>
 
@@ -37,15 +37,15 @@ export default function DailyView({ onFocus }: { onFocus: (q: Quest) => void }) 
             <div className="streak-badge">🔥</div>
             <div className="col" style={{ gap: 2 }}>
               <span className="display-sm" style={{ margin: 0 }}>
-                {p.streak}일 연속
+                {p.streak}-day streak
               </span>
-              <span className="caption">데일리를 모두 완료한 날의 연속 기록</span>
+              <span className="caption">Consecutive days you finished every daily</span>
             </div>
           </div>
           <div className="col" style={{ gap: 6, minWidth: 180, flex: 1, maxWidth: 260 }}>
             <div className="row between">
               <span className="caption-upper" style={{ color: "var(--muted)" }}>
-                오늘 진행도
+                Today's progress
               </span>
               <span className="caption mono">
                 {dailyDone}/{dailies.length}
@@ -60,18 +60,18 @@ export default function DailyView({ onFocus }: { onFocus: (q: Quest) => void }) 
 
       {/* penalty notice */}
       <div className="card warn-card">
-        ⚠️ 데일리를 하루 넘기면 다음 접속 시 <b>HP -{PENALTY_HP}</b>, <b>XP -{PENALTY_XP}</b> 패널티가 있어요.
-        (🛡️ 집중 방패가 있으면 1회 막아줍니다)
+        ⚠️ Miss a daily for a day and you'll take <b>HP -{PENALTY_HP}</b>, <b>XP -{PENALTY_XP}</b> on your next visit.
+        (🛡️ A Focus Shield blocks it once.)
       </div>
 
       {/* daily quests */}
       <section className="col" style={{ gap: 12 }}>
         <h3 className="title-md" style={{ margin: 0 }}>
-          ☀️ 데일리
+          ☀️ Dailies
         </h3>
         {dailies.length === 0 ? (
           <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>
-            아직 데일리가 없어요. 퀘스트 추가 시 <b>‘매일 반복’</b>을 체크하면 여기에 나타납니다.
+            No dailies yet. Check <b>'Repeat daily'</b> when adding a quest and it'll show up here.
           </div>
         ) : (
           <div className="col" style={{ gap: 10 }}>
@@ -86,7 +86,7 @@ export default function DailyView({ onFocus }: { onFocus: (q: Quest) => void }) 
       {dueToday.length > 0 && (
         <section className="col" style={{ gap: 12 }}>
           <h3 className="title-md" style={{ margin: 0 }}>
-            📅 오늘 마감
+            📅 Due today
           </h3>
           <div className="col" style={{ gap: 10 }}>
             {dueToday.map((q) => (
@@ -97,7 +97,7 @@ export default function DailyView({ onFocus }: { onFocus: (q: Quest) => void }) 
       )}
 
       {allDone && (
-        <div className="card done-card">🎉 오늘의 데일리를 모두 완료했어요! 내일도 이 기세로!</div>
+        <div className="card done-card">🎉 All of today's dailies are done! Keep the momentum tomorrow!</div>
       )}
 
       <style jsx>{`

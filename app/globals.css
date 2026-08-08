@@ -78,8 +78,8 @@ body {
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 18px;
+  line-height: 1.55;
   letter-spacing: 0; /* bitmap font: no negative tracking */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;

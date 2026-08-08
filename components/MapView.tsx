@@ -22,14 +22,14 @@ export default function MapView({ onGoQuests }: { onGoQuests: () => void }) {
       <div className="row between wrap" style={{ gap: 12 }}>
         <div className="col" style={{ gap: 4 }}>
           <h2 className="display-sm" style={{ margin: 0 }}>
-            모험의 대륙
+            Continent of Adventure
           </h2>
           <p className="caption" style={{ margin: 0 }}>
-            평소엔 흑백. <b style={{ color: "var(--ink)" }}>지금 해야 할 일</b>이 생긴 지역에 색이 켜집니다.
+            Usually black &amp; white. Regions with <b style={{ color: "var(--ink)" }}>something to do now</b> light up in color.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={onGoQuests}>
-          퀘스트로 이동 →
+          Go to Quests →
         </button>
       </div>
 
@@ -77,11 +77,11 @@ export default function MapView({ onGoQuests }: { onGoQuests: () => void }) {
 
       {anyUrgent ? (
         <div className="card alert-card">
-          🔴 지금 <b>당장 해야 할 일</b>이 있어요. 색이 켜진 지역을 눌러 진행하세요!
+          🔴 You have <b>something to do right now</b>. Tap a lit-up region to get going!
         </div>
       ) : (
         <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>
-          🌫️ 급한 일이 없습니다. 대륙이 고요하네요. (다음 행동·캘린더에 일이 생기면 색이 켜져요)
+          🌫️ Nothing urgent. The continent is calm. (Regions light up when Next Action or Calendar has work.)
         </div>
       )}
 

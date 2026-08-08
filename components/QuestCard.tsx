@@ -21,8 +21,8 @@ export default function QuestCard({
           className="check"
           onClick={() => !done && completeQuest(quest.id)}
           disabled={done}
-          aria-label="완료"
-          title={done ? "완료됨" : "완료 처리"}
+          aria-label="Complete"
+          title={done ? "Completed" : "Mark complete"}
         >
           {done ? "✓" : ""}
         </button>
@@ -36,30 +36,30 @@ export default function QuestCard({
           </div>
 
           <div className="row wrap" style={{ gap: 10 }}>
-            <span className="chip mono">⏱ {quest.estimateMin}분</span>
+            <span className="chip mono">⏱ {quest.estimateMin} min</span>
             <span className="chip mono" style={{ color: "var(--xp)" }}>
               +{quest.xpReward} XP
             </span>
             <span className="chip mono" style={{ color: "var(--gold)" }}>
               +{quest.goldReward} G
             </span>
-            {quest.isDaily && <span className="chip">☀️ 데일리</span>}
+            {quest.isDaily && <span className="chip">☀️ Daily</span>}
             {quest.dueDate && <span className="chip">📅 {quest.dueDate}</span>}
           </div>
 
           {!done && (
             <div className="row wrap" style={{ gap: 8, marginTop: 4 }}>
               <button className="btn btn-primary btn-sm" onClick={() => onFocus(quest)}>
-                ▶ 진행하기
+                ▶ Start
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => completeQuest(quest.id)}>
-                바로 완료
+                Done
               </button>
               <select
                 className="mini-select mono"
                 value={quest.category}
                 onChange={(e) => moveQuest(quest.id, e.target.value as GtdCategory)}
-                title="분류 이동"
+                title="Move category"
               >
                 {GTD_ORDER.map((k) => (
                   <option key={k} value={k}>
@@ -70,7 +70,7 @@ export default function QuestCard({
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={() => deleteQuest(quest.id)}
-                title="삭제"
+                title="Delete"
               >
                 🗑
               </button>

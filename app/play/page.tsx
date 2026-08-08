@@ -14,11 +14,11 @@ import ActivityLog from "@/components/ActivityLog";
 import FocusOverlay from "@/components/FocusOverlay";
 
 const TABS: { key: Tab; label: string; glyph: string }[] = [
-  { key: "quests", label: "퀘스트", glyph: "📜" },
-  { key: "map", label: "맵", glyph: "🗺️" },
-  { key: "daily", label: "오늘", glyph: "☀️" },
-  { key: "shop", label: "상점", glyph: "🛒" },
-  { key: "collection", label: "수집", glyph: "🏆" },
+  { key: "quests", label: "Quests", glyph: "📜" },
+  { key: "map", label: "Map", glyph: "🗺️" },
+  { key: "daily", label: "Today", glyph: "☀️" },
+  { key: "shop", label: "Shop", glyph: "🛒" },
+  { key: "collection", label: "Collection", glyph: "🏆" },
 ];
 
 export default function PlayPage() {
@@ -34,7 +34,7 @@ export default function PlayPage() {
   if (!ready || !state || !loggedIn) {
     return (
       <div className="container" style={{ padding: 80, textAlign: "center", color: "var(--muted)" }}>
-        불러오는 중…
+        Loading…
       </div>
     );
   }

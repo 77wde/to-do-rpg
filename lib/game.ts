@@ -42,7 +42,7 @@ export function newGame(nickname: string): GameState {
   return {
     player: newPlayer(nickname),
     quests: seedQuests(),
-    log: [mkLog("reward", `${nickname} 님, 모험을 시작합니다! 첫 퀘스트를 완료해보세요.`)],
+    log: [mkLog("reward", `${nickname}, your adventure begins! Try completing your first quest.`)],
     version: 1,
   };
 }
@@ -52,7 +52,7 @@ function seedQuests(): Quest[] {
   return [
     {
       id: uid(),
-      title: "책 30페이지 읽기",
+      title: "Read 30 pages of a book",
       category: "next-action",
       estimateMin: 25,
       xpReward: 40,
@@ -62,7 +62,7 @@ function seedQuests(): Quest[] {
     },
     {
       id: uid(),
-      title: "물 마시고 스트레칭하기",
+      title: "Drink water and stretch",
       category: "next-action",
       estimateMin: 10,
       xpReward: 16,
@@ -73,7 +73,7 @@ function seedQuests(): Quest[] {
     },
     {
       id: uid(),
-      title: "이번 주 여행 계획 정리",
+      title: "Plan this week's trip",
       category: "someday-maybe",
       estimateMin: 20,
       xpReward: 32,
@@ -83,7 +83,7 @@ function seedQuests(): Quest[] {
     },
     {
       id: uid(),
-      title: "친구 답장 기다리기",
+      title: "Wait for a reply from a friend",
       category: "waiting-for",
       estimateMin: 5,
       xpReward: 10,
@@ -157,12 +157,12 @@ export function completeQuest(state: GameState, questId: string, goldMultiplier 
   );
 
   let next: GameState = { ...state, player, quests };
-  next = pushLog(next, "complete", `‘${quest.title}’ 완료! +${quest.xpReward} XP · +${gold} G`);
+  next = pushLog(next, "complete", `'${quest.title}' complete! +${quest.xpReward} XP · +${gold} G`);
 
   if (levelsGained > 0) {
-    next = pushLog(next, "levelup", `레벨 업! 이제 Lv.${player.level} 입니다. 최대 HP가 늘었어요.`);
+    next = pushLog(next, "levelup", `Level up! You are now Lv.${player.level}. Max HP increased.`);
     for (const c of newlyUnlocked(oldLevel, player.level)) {
-      next = pushLog(next, "unlock", `수집품 잠금해제: ${c.glyph} ${c.name}`);
+      next = pushLog(next, "unlock", `Collectible unlocked: ${c.glyph} ${c.name}`);
     }
   }
 
@@ -173,8 +173,8 @@ export function completeQuest(state: GameState, questId: string, goldMultiplier 
 }
 
 /**
- * 기습 이벤트: next-action 을 완료하면 inbox / someday-maybe 중 하나가
- * 자동으로 next-action 으로 승격(할당)된다.
+ * Surprise event: finishing a next-action may promote one inbox / someday-maybe
+ * quest into next-action automatically.
  */
 export function maybeSurprise(state: GameState, justFinished: Quest): GameState {
   if (justFinished.category !== "next-action") return state;
@@ -193,14 +193,14 @@ export function maybeSurprise(state: GameState, justFinished: Quest): GameState 
   next = pushLog(
     next,
     "surprise",
-    `⚡ 기습 이벤트! ‘${pick.title}’ 이(가) 다음 행동으로 소환되었습니다.`,
+    `⚡ Surprise event! '${pick.title}' was summoned into Next Action.`,
   );
   return next;
 }
 
 export function addQuest(state: GameState, quest: Quest): GameState {
   const next = { ...state, quests: [quest, ...state.quests] };
-  return pushLog(next, "reward", `새 퀘스트 등록: ‘${quest.title}’`);
+  return pushLog(next, "reward", `New quest added: '${quest.title}'`);
 }
 
 export function deleteQuest(state: GameState, questId: string): GameState {
@@ -222,11 +222,11 @@ export function focusFailed(state: GameState, questTitle: string): GameState {
   // Shield item absorbs one failure
   if (state.player.owned.includes("item-shield")) {
     const player = { ...state.player, owned: state.player.owned.filter((id) => id !== "item-shield") };
-    return pushLog({ ...state, player }, "focusFail", `🛡️ 집중 방패가 ‘${questTitle}’ 실패 패널티를 막았습니다!`);
+    return pushLog({ ...state, player }, "focusFail", `🛡️ Focus Shield blocked the failure penalty for '${questTitle}'!`);
   }
   const player = changeHp(state.player, -FOCUS_FAIL_HP);
   let next = { ...state, player };
-  next = pushLog(next, "focusFail", `😵 가시에 닿았습니다! ‘${questTitle}’ 집중 실패 · HP -${FOCUS_FAIL_HP}`);
+  next = pushLog(next, "focusFail", `😵 Hit the spikes! Focus on '${questTitle}' failed · HP -${FOCUS_FAIL_HP}`);
   return next;
 }
 
@@ -275,16 +275,16 @@ export function applyDailyReset(state: GameState): GameState {
 
   if (missed.length > 0) {
     if (shieldAvailable) {
-      next = pushLog(next, "focusFail", `🛡️ 방패가 데일리 미완료 패널티를 막았습니다.`);
+      next = pushLog(next, "focusFail", `🛡️ The shield blocked the missed-daily penalty.`);
     } else {
       next = pushLog(
         next,
         "penalty",
-        `🌙 어제의 데일리 ${missed.length}개 미완료! HP -${totalHp} · XP -${totalXp}`,
+        `🌙 ${missed.length} daily quest(s) missed yesterday! HP -${totalHp} · XP -${totalXp}`,
       );
     }
   } else {
-    next = pushLog(next, "reward", `☀️ 새로운 하루! 연속 달성 ${player.streak}일차. 데일리가 초기화됐어요.`);
+    next = pushLog(next, "reward", `☀️ A new day! ${player.streak}-day streak. Dailies have reset.`);
   }
 
   return next;

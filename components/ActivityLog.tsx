@@ -15,12 +15,12 @@ const TONE: Record<LogEntry["kind"], string> = {
 
 function ago(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return "방금";
+  if (s < 60) return "just now";
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}분 전`;
+  if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 export default function ActivityLog() {
@@ -30,8 +30,8 @@ export default function ActivityLog() {
   return (
     <div className="card" style={{ padding: 20 }}>
       <div className="row between" style={{ marginBottom: 14 }}>
-        <span className="title-sm">활동 로그</span>
-        <span className="caption mono">{state.player.totalCompleted} 완료</span>
+        <span className="title-sm">Activity Log</span>
+        <span className="caption mono">{state.player.totalCompleted} done</span>
       </div>
       <ul className="log">
         {state.log.map((e) => (
