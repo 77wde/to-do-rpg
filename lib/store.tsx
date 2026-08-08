@@ -1,7 +1,9 @@
 "use client";
 // ============================================================================
-// QuestLog — client store: React context over the pure game logic,
-// persisted to localStorage. Also raises transient "toast" reward popups.
+// QuestLog — client store: React context over the pure game logic.
+//
+// Three pieces meet here and nothing else: the reducer (lib/gameReducer.ts),
+// the save (lib/useGamePersistence.ts), and the transient reward popups.
 // ============================================================================
 import React, {
   createContext,
@@ -13,107 +15,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { CONSUMABLE_IDS, SHOP, STORAGE_KEY } from "./constants";
-import {
-  addQuest,
-  applyDailyReset,
-  changeHp,
-  completeQuest,
-  deleteQuest,
-  focusFailed,
-  grantGold,
-  moveQuest,
-  newGame,
-  pushLog,
-} from "./game";
+import { SHOP } from "./constants";
+import { reducer } from "./gameReducer";
+import { newGame } from "./newGame";
 import { signOut } from "./supabase/auth";
-import { createClient, isSupabaseConfigured } from "./supabase/client";
-import { createGame, deleteGame, loadGameState, syncState } from "./supabase/gameRepo";
+import { isSupabaseConfigured } from "./supabase/client";
+import { createGame, deleteGame } from "./supabase/gameRepo";
+import { useGamePersistence } from "./useGamePersistence";
 import type { GameState, GtdCategory, Quest, ShopItem } from "./types";
-
-// ---- Actions --------------------------------------------------------------
-
-type Action =
-  | { type: "hydrate"; state: GameState }
-  | { type: "start"; nickname: string }
-  | { type: "reset" }
-  | { type: "addQuest"; quest: Quest }
-  | { type: "completeQuest"; questId: string }
-  | { type: "deleteQuest"; questId: string }
-  | { type: "moveQuest"; questId: string; category: GtdCategory }
-  | { type: "focusFail"; questTitle: string }
-  | { type: "grantGold"; gold: number; why: string }
-  | { type: "buy"; item: ShopItem }
-  | { type: "useItem"; itemId: string }
-  | { type: "equipSkin"; skinId: string }
-  | { type: "equipTitle"; titleId: string | null }
-  | { type: "dailyReset" };
-
-function goldMultiplier(state: GameState): number {
-  return state.player.owned.includes("comp-dragon") ? 1.1 : 1;
-}
-
-function reducer(state: GameState | null, action: Action): GameState | null {
-  switch (action.type) {
-    case "hydrate":
-      return action.state;
-    case "start":
-      return newGame(action.nickname);
-    case "reset":
-      return null;
-  }
-
-  if (!state) return state;
-
-  switch (action.type) {
-    case "addQuest":
-      return addQuest(state, action.quest);
-    case "completeQuest":
-      return completeQuest(state, action.questId, goldMultiplier(state));
-    case "deleteQuest":
-      return deleteQuest(state, action.questId);
-    case "moveQuest":
-      return moveQuest(state, action.questId, action.category);
-    case "focusFail":
-      return focusFailed(state, action.questTitle);
-    case "grantGold":
-      return grantGold(state, action.gold, action.why);
-    case "dailyReset":
-      return applyDailyReset(state);
-    case "buy": {
-      const item = action.item;
-      if (state.player.gold < item.price) return state;
-      const already = state.player.owned.includes(item.id);
-      if (already && !CONSUMABLE_IDS.has(item.id)) return state;
-      const player = {
-        ...state.player,
-        gold: state.player.gold - item.price,
-        owned: already ? state.player.owned : [...state.player.owned, item.id],
-      };
-      return pushLog({ ...state, player }, "buy", `Bought ${item.glyph} ${item.name} from the shop! -${item.price} G`);
-    }
-    case "useItem": {
-      const id = action.itemId;
-      if (!state.player.owned.includes(id)) return state;
-      if (id === "item-potion") {
-        const player = changeHp(
-          { ...state.player, owned: state.player.owned.filter((x) => x !== id) },
-          30,
-        );
-        return pushLog({ ...state, player }, "reward", `🧪 Used a Health Potion! HP +30`);
-      }
-      return state;
-    }
-    case "equipSkin": {
-      if (!state.player.owned.includes(action.skinId)) return state;
-      return { ...state, player: { ...state.player, equippedSkin: action.skinId } };
-    }
-    case "equipTitle":
-      return { ...state, player: { ...state.player, equippedTitle: action.titleId } };
-    default:
-      return state;
-  }
-}
 
 // ---- Toast (reward popups) ------------------------------------------------
 
@@ -125,9 +34,6 @@ export interface Toast {
 }
 
 // ---- Context --------------------------------------------------------------
-
-/** localStorage key marking whether the browser has an active (logged-in) session. */
-const SESSION_KEY = "questlog:session";
 
 interface StoreCtx {
   state: GameState | null;
@@ -171,20 +77,8 @@ const Ctx = createContext<StoreCtx | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, null);
-  const [ready, setReady] = useState(false);
-  /** Local mode only — cloud mode derives this from the auth session. */
-  const [session, setSession] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [needsNickname, setNeedsNickname] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
-  /** Bumping this re-runs the load effect. */
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevLevel = useRef<number | null>(null);
-  /** Last state known to be in the database — the baseline for the next diff. */
-  const synced = useRef<GameState | null>(null);
-  /** Serializes writes so a burst of actions cannot land out of order. */
-  const writes = useRef<Promise<void>>(Promise.resolve());
 
   const toast = useCallback((t: Omit<Toast, "id">) => {
     const id = crypto.randomUUID();
@@ -192,129 +86,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToasts((cur) => cur.filter((x) => x.id !== id)), 2600);
   }, []);
 
-  const queueWrite = useCallback(
-    (run: () => Promise<void>, failure: string) => {
-      writes.current = writes.current
-        .then(run)
-        .catch((err) => {
-          console.error(`[questlog] ${failure}`, err);
-          toast({ glyph: "⚠️", text: failure, tone: "bad" });
-        });
-    },
+  const reportWriteFailure = useCallback(
+    (message: string) => toast({ glyph: "⚠️", text: message, tone: "bad" }),
     [toast],
   );
 
-  // ---- Local mode: hydrate from localStorage once -------------------------
-  useEffect(() => {
-    if (isSupabaseConfigured) return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as GameState;
-        const withReset = applyDailyReset(parsed);
-        dispatch({ type: "hydrate", state: withReset });
-        prevLevel.current = withReset.player.level;
-        // stay logged in only if the session flag was set
-        setSession(localStorage.getItem(SESSION_KEY) === "1");
-      }
-    } catch {
-      /* ignore corrupt state */
-    }
-    setReady(true);
-  }, []);
+  const save = useGamePersistence(state, dispatch, reportWriteFailure);
+  const { userId, setBaseline, queueWrite, setNeedsNickname, setSession } = save;
 
-  // ---- Cloud mode: follow the auth session --------------------------------
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    const supabase = createClient();
-    if (!supabase) return;
-    let alive = true;
-
-    supabase.auth.getUser().then(({ data }) => {
-      if (!alive) return;
-      setUserId(data.user?.id ?? null);
-      // Signed out: nothing to load, so the app is ready right away.
-      if (!data.user) setReady(true);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, authSession) => {
-      const id = authSession?.user?.id ?? null;
-      setUserId(id);
-      if (!id) {
-        dispatch({ type: "reset" });
-        synced.current = null;
-        setNeedsNickname(false);
-        setReady(true);
-      }
-    });
-
-    return () => {
-      alive = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  // ---- Cloud mode: load the save for the signed-in user -------------------
-  useEffect(() => {
-    if (!isSupabaseConfigured || !userId) return;
-    let alive = true;
-    setReady(false);
-    setLoadFailed(false);
-
-    loadGameState(userId)
-      .then((loaded) => {
-        if (!alive) return;
-        if (!loaded) {
-          // Signed in with no save — the start screen asks for a nickname.
-          setNeedsNickname(true);
-          setReady(true);
-          return;
-        }
-        const withReset = applyDailyReset(loaded);
-        // Baseline is what the database actually holds, so any delta the daily
-        // reset produced gets written back by the sync effect below.
-        synced.current = loaded;
-        prevLevel.current = withReset.player.level;
-        dispatch({ type: "hydrate", state: withReset });
-        setNeedsNickname(false);
-        setReady(true);
-      })
-      .catch((err) => {
-        if (!alive) return;
-        console.error("[questlog] could not load your save", err);
-        setLoadFailed(true);
-        setReady(true);
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [userId, loadAttempt, toast]);
-
-  // ---- Local mode: persist on every change --------------------------------
-  useEffect(() => {
-    if (isSupabaseConfigured || !ready) return;
-    if (state) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    else localStorage.removeItem(STORAGE_KEY);
-  }, [state, ready]);
-
-  // ---- Local mode: persist the session flag -------------------------------
-  useEffect(() => {
-    if (isSupabaseConfigured || !ready) return;
-    localStorage.setItem(SESSION_KEY, session ? "1" : "0");
-  }, [session, ready]);
-
-  // ---- Cloud mode: push whatever changed ----------------------------------
-  useEffect(() => {
-    if (!isSupabaseConfigured || !ready || !userId || !state) return;
-    const base = synced.current;
-    // No baseline yet means the save is still being created by start().
-    if (!base || base === state) return;
-    synced.current = state;
-    queueWrite(() => syncState(userId, base, state), "Changes could not be saved.");
-  }, [state, ready, userId, queueWrite]);
-
-  // watch level for level-up toast
+  // Watch level for the level-up toast. prevLevel starts null, so hydrating a
+  // high-level save never fires one.
   useEffect(() => {
     if (!state) {
       prevLevel.current = null;
@@ -329,11 +110,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const api = useMemo<StoreCtx>(
     () => ({
       state,
-      ready,
-      loggedIn: isSupabaseConfigured ? !!userId && !!state : !!state && session,
-      needsNickname,
-      loadFailed,
-      retryLoad: () => setLoadAttempt((n) => n + 1),
+      ready: save.ready,
+      loggedIn: isSupabaseConfigured ? !!userId && !!state : !!state && save.session,
+      needsNickname: save.needsNickname,
+      loadFailed: save.loadFailed,
+      retryLoad: save.retryLoad,
       toasts,
       toast,
       start: (nickname) => {
@@ -347,8 +128,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // would call newGame() again and mint different quest ids than the
         // ones written to the database.
         const fresh = newGame(nickname);
-        synced.current = fresh;
-        prevLevel.current = fresh.player.level;
+        setBaseline(fresh);
         dispatch({ type: "hydrate", state: fresh });
         setNeedsNickname(false);
         queueWrite(() => createGame(userId, fresh), "Could not create your save.");
@@ -364,7 +144,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       reset: () => {
         dispatch({ type: "reset" });
-        synced.current = null;
+        setBaseline(null);
         if (!isSupabaseConfigured) {
           setSession(false);
           return;
@@ -378,7 +158,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       completeQuest: (questId) => {
         const q = state?.quests.find((x) => x.id === questId);
         dispatch({ type: "completeQuest", questId });
-        if (q) toast({ glyph: "⭐", text: `+${q.xpReward} XP · +${q.goldReward} G`, tone: "reward" });
+        if (q) {
+          toast({ glyph: "⭐", text: `+${q.xpReward} XP · +${q.goldReward} G`, tone: "reward" });
+        }
       },
       deleteQuest: (questId) => dispatch({ type: "deleteQuest", questId }),
       moveQuest: (questId, category) => dispatch({ type: "moveQuest", questId, category }),
@@ -398,7 +180,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       equipSkin: (id) => dispatch({ type: "equipSkin", skinId: id }),
       equipTitle: (id) => dispatch({ type: "equipTitle", titleId: id }),
     }),
-    [state, ready, session, userId, needsNickname, loadFailed, toasts, toast, queueWrite],
+    [state, save, userId, setBaseline, queueWrite, setNeedsNickname, setSession, toasts, toast],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

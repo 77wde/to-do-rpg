@@ -6,28 +6,12 @@ import {
   FOCUS_FAIL_HP,
   PENALTY_HP,
   PENALTY_XP,
-  START_HP,
   maxHpForLevel,
   xpToNext,
 } from "./constants";
+import { todayStr } from "./dates";
+import { uid } from "./ids";
 import type { GameState, GtdCategory, LogEntry, Player, Quest } from "./types";
-
-/**
- * `YYYY-MM-DD` in the player's own timezone. Deliberately not `toISOString()`,
- * which formats in UTC: east of Greenwich that names yesterday for most of the
- * morning, so a quest due "today" would not show up in Today, and the daily
- * reset would fire at the wrong hour.
- */
-export function todayStr(d = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-/** Parses a `YYYY-MM-DD` produced by todayStr back into a local Date. */
-export function parseDateStr(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
 
 /**
  * The open quests a map region shows. Next Action is the "what do I do right
@@ -45,88 +29,6 @@ export function questsForRegion(
     if (q.category === cat) return true;
     return cat === "next-action" && (q.isDaily || q.dueDate === today);
   });
-}
-
-/**
- * Ids double as primary keys in Postgres, where the columns are `uuid` — a
- * random base36 string would be rejected on insert.
- */
-export function uid(): string {
-  return crypto.randomUUID();
-}
-
-export function newPlayer(nickname: string): Player {
-  return {
-    nickname,
-    level: 1,
-    xp: 0,
-    gold: 30,
-    hp: START_HP,
-    maxHp: maxHpForLevel(1),
-    owned: ["skin-knight"],
-    equippedSkin: "skin-knight",
-    equippedTitle: "title-starter",
-    createdAt: Date.now(),
-    lastDailyReset: todayStr(),
-    totalCompleted: 0,
-    streak: 0,
-  };
-}
-
-export function newGame(nickname: string): GameState {
-  return {
-    player: newPlayer(nickname),
-    quests: seedQuests(),
-    log: [mkLog("reward", `${nickname}, your adventure begins! Try completing your first quest.`)],
-    version: 1,
-  };
-}
-
-function seedQuests(): Quest[] {
-  const now = Date.now();
-  return [
-    {
-      id: uid(),
-      title: "Read 30 pages of a book",
-      category: "next-action",
-      estimateMin: 25,
-      xpReward: 40,
-      goldReward: 22,
-      status: "todo",
-      createdAt: now,
-    },
-    {
-      id: uid(),
-      title: "Drink water and stretch",
-      category: "next-action",
-      estimateMin: 10,
-      xpReward: 16,
-      goldReward: 9,
-      status: "todo",
-      createdAt: now,
-      isDaily: true,
-    },
-    {
-      id: uid(),
-      title: "Plan this week's trip",
-      category: "someday-maybe",
-      estimateMin: 20,
-      xpReward: 32,
-      goldReward: 18,
-      status: "todo",
-      createdAt: now,
-    },
-    {
-      id: uid(),
-      title: "Wait for a reply from a friend",
-      category: "waiting-for",
-      estimateMin: 5,
-      xpReward: 10,
-      goldReward: 5,
-      status: "todo",
-      createdAt: now,
-    },
-  ];
 }
 
 export function mkLog(kind: LogEntry["kind"], text: string): LogEntry {

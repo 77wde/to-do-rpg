@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { GTD_ORDER, suggestReward } from "@/lib/constants";
-import { uid, todayStr, parseDateStr } from "@/lib/game";
+import { todayStr, parseDateStr } from "@/lib/dates";
+import { uid } from "@/lib/ids";
 import type { GtdCategory, Quest } from "@/lib/types";
 import { CategoryLabel } from "./CategoryTag";
 import { Button } from "@/components/ui/button";
