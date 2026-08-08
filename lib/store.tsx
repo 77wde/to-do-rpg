@@ -26,6 +26,7 @@ import {
   newGame,
   pushLog,
 } from "./game";
+import { signOut } from "./supabase/auth";
 import type { GameState, GtdCategory, Quest, ShopItem } from "./types";
 
 // ---- Actions --------------------------------------------------------------
@@ -221,7 +222,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setSession(true);
       },
       resume: () => setSession(true),
-      logout: () => setSession(false),
+      logout: () => {
+        setSession(false);
+        // No-op until Supabase is configured.
+        void signOut();
+      },
       reset: () => {
         dispatch({ type: "reset" });
         setSession(false);

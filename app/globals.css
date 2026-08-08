@@ -475,3 +475,46 @@ body {
 .dot {
   border-radius: 0 !important;
 }
+
+/* Field rejected by a failed submit. Needs !important to beat the pixel
+   border rule above, which is itself !important. */
+.input.is-error,
+.input.is-error:focus {
+  border-color: var(--error) !important;
+  box-shadow: 3px 3px 0 0 var(--error);
+}
+
+/* Error banner — a pixel warning plate, loud enough not to be missed. */
+.error-plate {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 300px;
+  padding: 12px 14px;
+  background: var(--error);
+  color: #fff;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  line-height: 1.7;
+  border: 3px solid var(--pxl);
+  box-shadow: 5px 5px 0 0 var(--pxl);
+}
+.error-plate .mark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Respect users who ask for less motion — the plate still shows, it just
+   appears instead of shaking. */
+@media (prefers-reduced-motion: reduce) {
+  .shake {
+    animation: none;
+  }
+}

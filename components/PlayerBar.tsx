@@ -1,9 +1,13 @@
 "use client";
+import { useState } from "react";
 import { useStore, shopItem } from "@/lib/store";
 import { xpToNext } from "@/lib/constants";
 
 export default function PlayerBar() {
   const { state, reset, logout } = useStore();
+  // Reset asks for confirmation inline. Not window.confirm(): embedded
+  // webviews block it, and an OS dialog breaks the retro look anyway.
+  const [confirmingReset, setConfirmingReset] = useState(false);
   if (!state) return null;
   const p = state.player;
   const need = xpToNext(p.level);
@@ -67,18 +71,42 @@ export default function PlayerBar() {
         </div>
 
         <div className="row" style={{ gap: 4 }}>
-          <button className="btn btn-secondary btn-sm" onClick={logout} title="Log out (save is kept)">
-            Log out
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              if (confirm("Start over from scratch? Your saved adventure will be deleted.")) reset();
-            }}
-            title="New game (deletes save)"
-          >
-            ↺
-          </button>
+          {confirmingReset ? (
+            <>
+              <span className="caption" style={{ marginRight: 4 }}>
+                Delete your save?
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setConfirmingReset(false);
+                  reset();
+                }}
+              >
+                Yes, start over
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setConfirmingReset(false)}
+                autoFocus
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-secondary btn-sm" onClick={logout} title="Log out (save is kept)">
+                Log out
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setConfirmingReset(true)}
+                title="New game (deletes save)"
+              >
+                ↺
+              </button>
+            </>
+          )}
         </div>
       </div>
 

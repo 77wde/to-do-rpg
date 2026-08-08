@@ -10,14 +10,21 @@ export default function PixelButton({
   onClick,
   type = "button",
   className,
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   type?: "button" | "submit";
   className?: string;
+  disabled?: boolean;
 }) {
   return (
-    <button type={type} onClick={onClick} className={`pixel-btn ${className ?? ""}`}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`pixel-btn ${className ?? ""}`}
+    >
       <span>{children}</span>
       <style jsx>{`
         .pixel-btn {
@@ -51,6 +58,17 @@ export default function PixelButton({
         .pixel-btn:focus-visible {
           outline: 3px dashed var(--edge);
           outline-offset: 4px;
+        }
+        .pixel-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+        .pixel-btn:disabled:hover {
+          background: var(--face);
+        }
+        .pixel-btn:disabled:active {
+          transform: none;
+          box-shadow: 6px 6px 0 0 var(--edge);
         }
         .pixel-btn span {
           display: inline-block;
