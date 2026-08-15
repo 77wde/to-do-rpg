@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE HOLLOW — Retro RPG Horror</title>
+<style>
+  :root{
+    --bg:#05060a; --ink:#c8d0b0; --dim:#5a6b4a; --blood:#8a1414; --gold:#c9a227;
+  }
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+    font-family:"Courier New",monospace;color:var(--ink);}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;
+    box-shadow:0 0 60px #000 inset, 0 0 40px rgba(0,0,0,.9);
+    background:#05060a;max-width:100vw;max-height:100vh;}
+  /* CRT scanline overlay */
+  #scan{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.28) 3px,rgba(0,0,0,0) 4px);
+    mix-blend-mode:multiply;}
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:6;
+    background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.55) 100%);}
+  #hud{position:fixed;left:0;right:0;bottom:0;z-index:7;pointer-events:none;
+    padding:10px 14px;font-size:13px;letter-spacing:1px;text-shadow:0 0 6px #000;}
+  .bar{display:inline-block;height:12px;width:150px;border:2px solid #2a2f22;
+    background:#0a0d08;vertical-align:middle;margin:0 8px 0 4px;position:relative;}
+  .bar>i{display:block;height:100%;transition:width .15s;}
+  #msg{position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:8;
+    text-align:center;font-size:15px;color:#e8ecd0;text-shadow:0 0 8px #000,0 0 14px var(--blood);
+    pointer-events:none;opacity:0;transition:opacity .4s;max-width:80vw;}
+  #title{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;background:#04050a;
+    transition:opacity .8s;}
+  #title h1{font-size:min(11vw,68px);letter-spacing:8px;margin:0;color:#d9dcc0;
+    text-shadow:0 0 12px var(--blood),0 3px 0 #000;}
+  #title p{color:var(--dim);letter-spacing:3px;margin:18px 0;}
+  #title .flick{animation:flick 3s infinite;}
+  @keyframes flick{0%,97%,100%{opacity:1}98%{opacity:.3}99%{opacity:.8}}
+  #start{margin-top:24px;padding:12px 26px;background:#0a0d08;color:var(--ink);
+    border:2px solid var(--dim);font-family:inherit;font-size:15px;letter-spacing:3px;
+    cursor:pointer;text-shadow:0 0 6px #000;}
+  #start:hover{background:var(--blood);color:#fff;border-color:var(--blood);}
+  .k{color:var(--gold);}
+  #dead{position:fixed;inset:0;z-index:21;display:none;flex-direction:column;
+    align-items:center;justify-content:center;background:rgba(20,0,0,.92);text-align:center;}
+  #dead h1{color:var(--blood);font-size:min(12vw,80px);letter-spacing:10px;
+    text-shadow:0 0 20px #000;margin:0;}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="480" height="360"></canvas></div>
+<div id="scan"></div>
+<div id="vig"></div>
+
+<div id="msg"></div>
+
+<div id="hud">
+  HP<span class="bar"><i id="hp" style="width:100%;background:linear-gradient(#c22,#600)"></i></span>
+  SAN<span class="bar"><i id="san" style="width:100%;background:linear-gradient(#59c,#124)"></i></span>
+  <span id="stats"></span>
+</div>
+
+<div id="title">
+  <h1 class="flick">THE HOLLOW</h1>
+  <p>a retro rpg horror · descend the black chapel</p>
+  <p style="color:#7a8460;font-size:13px;line-height:1.9">
+    <span class="k">WASD / ARROWS</span> move &nbsp;·&nbsp; <span class="k">SPACE</span> strike &nbsp;·&nbsp; walk into torches to burn brighter<br>
+    find the <span class="k">stairs ▼</span> on each floor. do not let the sanity run dry.
+  </p>
+  <button id="start">ENTER THE DARK</button>
+</div>
+
+<div id="dead">
+  <h1>YOU DIED</h1>
+  <p id="deadsub" style="color:#c98;letter-spacing:2px;margin-top:20px"></p>
+  <button id="restart" style="margin-top:20px;padding:12px 26px;background:#100;color:var(--ink);
+    border:2px solid var(--blood);font-family:inherit;font-size:15px;letter-spacing:3px;cursor:pointer;">
+    RISE AGAIN
+  </button>
+</div>
+
+<script>
+const C = document.getElementById('c'), X = C.getContext('2d');
+X.imageSmoothingEnabled = false;
+const W = C.width, H = C.height, TILE = 24;
+const MAPW = 32, MAPH = 24;
+
+// ---------- input ----------
+const keys = {};
+addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+});
+addEventListener('keyup', e=> keys[e.key.toLowerCase()] = false);
+
+// ---------- state ----------
+let map, entities, torches, player, cam, floor, particles, gameOn=false, tAcc=0;
+let flash=0, shakeT=0, msgT=0;
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function ri(a,b){return Math.floor(rnd(a,b+1));}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+
+// ---------- map generation (rooms + corridors) ----------
+function genMap(){
+  map = Array.from({length:MAPH},()=>Array(MAPW).fill(1)); // 1=wall 0=floor
+  const rooms=[];
+  const n = ri(6,9);
+  for(let i=0;i<n;i++){
+    const rw=ri(4,7), rh=ri(4,6);
+    const rx=ri(1,MAPW-rw-2), ry=ri(1,MAPH-rh-2);
+    for(let y=ry;y<ry+rh;y++) for(let x=rx;x<rx+rw;x++) map[y][x]=0;
+    rooms.push({x:rx+(rw>>1),y:ry+(rh>>1)});
+  }
+  // connect rooms with corridors
+  for(let i=1;i<rooms.length;i++){
+    let a=rooms[i-1], b=rooms[i];
+    let x=a.x,y=a.y;
+    while(x!==b.x){ map[y][x]=0; map[y+1]?map[y+1][x]=0:0; x+=x<b.x?1:-1; }
+    while(y!==b.y){ map[y][x]=0; map[y][x+1]!==undefined?map[y][x+1]=0:0; y+=y<b.y?1:-1; }
+  }
+  return rooms;
+}
+
+function isWall(px,py){
+  const tx=Math.floor(px/TILE), ty=Math.floor(py/TILE);
+  if(tx<0||ty<0||tx>=MAPW||ty>=MAPH) return true;
+  return map[ty][tx]===1;
+}
+function freeCell(){
+  for(let t=0;t<400;t++){
+    const x=ri(1,MAPW-2), y=ri(1,MAPH-2);
+    if(map[y][x]===0) return {x:x*TILE+TILE/2, y:y*TILE+TILE/2};
+  }
+  return {x:TILE*2,y:TILE*2};
+}
+
+// ---------- setup floor ----------
+function startFloor(){
+  const rooms = genMap();
+  torches=[]; entities=[]; particles=[];
+  // place torches in rooms
+  rooms.forEach(r=>{ if(Math.random()<0.7) torches.push({x:r.x*TILE+TILE/2,y:r.y*TILE+TILE/2,lit:1,warm:0}); });
+  // stairs down — far room
+  const last=rooms[rooms.length-1];
+  entities.push({type:'stairs',x:last.x*TILE+TILE/2,y:last.y*TILE+TILE/2});
+  // player at first room (keep progress across floors)
+  if(!player){
+    player={x:0,y:0,r:9,hp:100,mhp:100,san:100,msan:100,atk:14,spd:1.6,
+      xp:0,lvl:1,next:30,face:{x:0,y:1},atkT:0,hurtT:0,kills:0};
+  }
+  const p0=rooms[0];
+  player.x=p0.x*TILE+TILE/2; player.y=p0.y*TILE+TILE/2;
+  // enemies scale with floor
+  const ecount = 3+floor*2;
+  for(let i=0;i<ecount;i++){
+    const c=freeCell();
+    if(dist(c,player)<TILE*5){i--;continue;}
+    const kind = Math.random()< (floor>=3?0.35:0.18) ? 'wraith':'crawler';
+    entities.push(makeEnemy(kind,c.x,c.y));
+  }
+  cam={x:player.x,y:player.y};
+  say(floor===0?"THE HOLLOW · depth 1":"you descend... depth "+(floor+1));
+}
+
+function makeEnemy(kind,x,y){
+  if(kind==='wraith') return {type:'enemy',kind,x,y,r:11,hp:26+floor*8,mhp:26+floor*8,
+    spd:0.9+floor*0.08,atk:10+floor*3,cool:0,wob:Math.random()*6,hurtT:0,alerted:false};
+  return {type:'enemy',kind,x,y,r:8,hp:14+floor*5,mhp:14+floor*5,
+    spd:1.3+floor*0.06,atk:6+floor*2,cool:0,wob:Math.random()*6,hurtT:0,alerted:false};
+}
+
+// ---------- messages ----------
+function say(t){ const m=document.getElementById('msg'); m.textContent=t; m.style.opacity=1; msgT=2.6; }
+
+// ---------- game loop ----------
+let last=0;
+function loop(ts){
+  const dt=Math.min(0.05,(ts-last)/1000)||0; last=ts;
+  if(gameOn){ update(dt); }
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  if(msgT>0){msgT-=dt; if(msgT<=0) document.getElementById('msg').style.opacity=0;}
+  if(flash>0) flash-=dt*3;
+  if(shakeT>0) shakeT-=dt;
+
+  // --- player movement ---
+  let dx=0,dy=0;
+  if(keys['w']||keys['arrowup'])dy--; if(keys['s']||keys['arrowdown'])dy++;
+  if(keys['a']||keys['arrowleft'])dx--; if(keys['d']||keys['arrowright'])dx++;
+  if(dx||dy){
+    const l=Math.hypot(dx,dy); dx/=l; dy/=l;
+    player.face={x:dx,y:dy};
+    const sp=player.spd*60*dt;
+    if(!isWall(player.x+dx*sp,player.y)) player.x+=dx*sp;
+    if(!isWall(player.x,player.y+dy*sp)) player.y+=dy*sp;
+  }
+  // --- attack ---
+  player.atkT-=dt; if(player.hurtT>0)player.hurtT-=dt;
+  if((keys[' ']) && player.atkT<=0){
+    player.atkT=0.42; flash=Math.max(flash,0.25);
+    const ax=player.x+player.face.x*20, ay=player.y+player.face.y*20;
+    for(const e of entities){
+      if(e.type!=='enemy')continue;
+      if(Math.hypot(e.x-ax,e.y-ay)<e.r+16){
+        e.hp-=player.atk; e.hurtT=0.18; e.alerted=true;
+        e.x+=player.face.x*8; e.y+=player.face.y*8;
+        for(let i=0;i<6;i++)particles.push({x:e.x,y:e.y,vx:rnd(-40,40),vy:rnd(-40,40),life:.4,c:'#8a1414'});
+      }
+    }
+    for(let i=0;i<4;i++)particles.push({x:ax,y:ay,vx:player.face.x*rnd(20,60),vy:player.face.y*rnd(20,60),life:.25,c:'#c8d0b0'});
+  }
+
+  // --- torches (light + heal sanity when near) ---
+  let nearLight=0;
+  for(const t of torches){
+    const d=dist(t,player);
+    if(d<TILE*2.4){ nearLight=Math.max(nearLight, 1-d/(TILE*2.4)); }
+  }
+  // sanity drains in darkness, restores in light
+  if(nearLight>0.3){
+    player.san=Math.min(player.msan, player.san + (nearLight*10 + 4)*dt);
+    player.hp=Math.min(player.mhp, player.hp + nearLight*3*dt);
+  } else {
+    player.san -= (0.8 + floor*0.25)*dt;
+  }
+  if(player.san<=0){ die("the dark took your mind."); return; }
+
+  // --- entities ---
+  for(const e of entities){
+    if(e.type==='stairs'){
+      if(dist(e,player)<18){ floor++; player.hp=Math.min(player.mhp,player.hp+20); player.san=Math.min(player.msan,player.san+30); startFloor(); return; }
+      continue;
+    }
+    if(e.type!=='enemy')continue;
+    if(e.hp<=0){
+      gainXp(e.kind==='wraith'?14:7); player.kills++;
+      for(let i=0;i<12;i++)particles.push({x:e.x,y:e.y,vx:rnd(-60,60),vy:rnd(-60,60),life:.6,c:'#611'});
+      e._dead=true; continue;
+    }
+    if(e.hurtT>0)e.hurtT-=dt; e.cool-=dt; e.wob+=dt*4;
+    const d=dist(e,player);
+    // aggro range — wraiths sense you farther
+    const sense = e.kind==='wraith'?TILE*6:TILE*4.2;
+    if(d<sense) e.alerted=true;
+    if(e.alerted){
+      let mx=(player.x-e.x)/d, my=(player.y-e.y)/d;
+      // crawlers jitter, wraiths glide straight
+      if(e.kind==='crawler'){ mx+=Math.sin(e.wob)*0.4; my+=Math.cos(e.wob*1.3)*0.4; }
+      const sp=e.spd*60*dt;
+      if(!isWall(e.x+mx*sp,e.y)) e.x+=mx*sp;
+      if(!isWall(e.x,e.y+my*sp)) e.y+=my*sp;
+      if(d<e.r+player.r+2 && e.cool<=0 && player.hurtT<=0){
+        player.hp-=e.atk; player.san-=e.kind==='wraith'?5:2;
+        player.hurtT=0.5; e.cool=0.9; flash=Math.max(flash,0.4); shakeT=0.25;
+        player.x+=mx* -14; player.y+=my* -14;
+        if(player.hp<=0){ die("your body failed in the deep."); return; }
+      }
+    }
+  }
+  entities = entities.filter(e=>!e._dead);
+
+  // --- particles ---
+  for(const p of particles){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.9; p.vy*=0.9; p.life-=dt; }
+  particles=particles.filter(p=>p.life>0);
+
+  // --- camera ---
+  cam.x+=(player.x-cam.x)*Math.min(1,dt*6);
+  cam.y+=(player.y-cam.y)*Math.min(1,dt*6);
+
+  updateHUD();
+}
+
+function gainXp(n){
+  player.xp+=n;
+  if(player.xp>=player.next){
+    player.xp-=player.next; player.lvl++; player.next=Math.floor(player.next*1.5);
+    player.mhp+=18; player.hp=player.mhp; player.msan+=10; player.san=player.msan;
+    player.atk+=4; player.spd+=0.05;
+    flash=Math.max(flash,0.5);
+    say("LEVEL "+player.lvl+" — you feel stronger, and more watched.");
+  }
+}
+
+function die(reason){
+  gameOn=false;
+  document.getElementById('deadsub').textContent=reason+"  ·  depth "+(floor+1)+" · lvl "+player.lvl+" · "+player.kills+" slain";
+  document.getElementById('dead').style.display='flex';
+}
+
+// ---------- rendering ----------
+function render(){
+  X.fillStyle='#05060a'; X.fillRect(0,0,W,H);
+  if(!player){return;}
+  let sx=0,sy=0;
+  if(shakeT>0){ sx=rnd(-3,3); sy=rnd(-3,3); }
+  const ox=W/2-cam.x+sx, oy=H/2-cam.y+sy;
+
+  // floor tiles
+  for(let y=0;y<MAPH;y++)for(let x=0;x<MAPW;x++){
+    const px=x*TILE+ox, py=y*TILE+oy;
+    if(px<-TILE||py<-TILE||px>W||py>H)continue;
+    if(map[y][x]===1){
+      X.fillStyle='#1a2130'; X.fillRect(px,py,TILE,TILE);
+      X.fillStyle='#2a3446'; X.fillRect(px,py,TILE,3);
+    }else{
+      X.fillStyle=((x+y)&1)?'#141820':'#10141b'; X.fillRect(px,py,TILE,TILE);
+      // subtle floor cracks
+      if(((x*7+y*13)%11)===0){X.fillStyle='#1d222c';X.fillRect(px+6,py+8,10,2);}
+    }
+  }
+
+  // torches
+  for(const t of torches){
+    const px=t.x+ox, py=t.y+oy;
+    const fl=0.7+Math.sin(performance.now()/90+t.x)*0.3;
+    const g=X.createRadialGradient(px,py,4,px,py,TILE*2.6);
+    g.addColorStop(0,'rgba(255,170,60,'+(0.5*fl)+')');
+    g.addColorStop(0.4,'rgba(200,80,20,'+(0.22*fl)+')');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    X.fillStyle=g; X.fillRect(px-TILE*2.6,py-TILE*2.6,TILE*5.2,TILE*5.2);
+    X.fillStyle='#3a2a12'; X.fillRect(px-2,py-2,4,8);
+    X.fillStyle='#ffb43c'; X.fillRect(px-2,py-8-fl*3,4,6+fl*3);
+    X.fillStyle='#fff2c0'; X.fillRect(px-1,py-6-fl*2,2,3);
+  }
+
+  // stairs
+  for(const e of entities){
+    if(e.type!=='stairs')continue;
+    const px=e.x+ox,py=e.y+oy;
+    X.fillStyle='#000'; X.fillRect(px-11,py-11,22,22);
+    X.fillStyle='#1a2030';
+    for(let i=0;i<4;i++)X.fillRect(px-11+i*3,py-11+i*5,22-i*6,4);
+    X.fillStyle='#5a6b8a'; X.font='12px monospace'; X.textAlign='center';
+    X.fillText('▼',px,py+16);
+  }
+
+  // enemies
+  for(const e of entities){
+    if(e.type!=='enemy')continue;
+    const px=e.x+ox,py=e.y+oy;
+    if(px<-30||py<-30||px>W+30||py>H+30)continue;
+    if(e.kind==='wraith'){
+      // ghostly, semi-transparent, trailing
+      X.globalAlpha=0.55+Math.sin(e.wob)*0.15;
+      X.fillStyle=e.hurtT>0?'#fff':'#24303e';
+      X.beginPath(); X.arc(px,py,e.r,0,7); X.fill();
+      X.globalAlpha=0.35;
+      X.fillStyle='#3a4a5e'; X.beginPath(); X.arc(px,py+e.r*0.6,e.r*0.8,0,7); X.fill();
+      X.globalAlpha=1;
+      X.fillStyle='#c9302c'; // eyes
+      X.fillRect(px-4,py-2,2,3); X.fillRect(px+2,py-2,2,3);
+    }else{
+      // crawler — jagged dark blob w/ pale eyes
+      X.fillStyle=e.hurtT>0?'#fff':'#151a12';
+      X.beginPath(); X.arc(px,py,e.r,0,7); X.fill();
+      X.fillStyle='#0a0d08';
+      for(let a=0;a<6;a++){const an=a+e.wob*0.5;X.fillRect(px+Math.cos(an)*e.r-1,py+Math.sin(an)*e.r-1,3,3);}
+      X.fillStyle='#e8e0b0';
+      X.fillRect(px-4,py-2,2,2); X.fillRect(px+2,py-2,2,2);
+    }
+    // hp pip
+    if(e.hp<e.mhp){
+      X.fillStyle='#300';X.fillRect(px-e.r,py-e.r-5,e.r*2,2);
+      X.fillStyle='#c22';X.fillRect(px-e.r,py-e.r-5,e.r*2*(e.hp/e.mhp),2);
+    }
+  }
+
+  // particles
+  for(const p of particles){
+    X.globalAlpha=Math.max(0,p.life*2); X.fillStyle=p.c;
+    X.fillRect(p.x+ox-1,p.y+oy-1,2,2); X.globalAlpha=1;
+  }
+
+  // --- player: the black circle ---
+  const px=player.x+ox, py=player.y+oy;
+  // strike arc
+  if(player.atkT>0.2){
+    X.globalAlpha=(player.atkT-0.2)*4;
+    X.strokeStyle='#e8ecd0'; X.lineWidth=3;
+    X.beginPath();
+    const ang=Math.atan2(player.face.y,player.face.x);
+    X.arc(px,py,22,ang-0.9,ang+0.9); X.stroke();
+    X.globalAlpha=1; X.lineWidth=1;
+  }
+  // shadow
+  X.fillStyle='rgba(0,0,0,.6)'; X.beginPath(); X.ellipse(px,py+player.r-1,player.r,player.r*0.5,0,0,7); X.fill();
+  // the circle
+  X.fillStyle= player.hurtT>0 && Math.floor(performance.now()/60)%2 ? '#5a1414' : '#000';
+  X.beginPath(); X.arc(px,py,player.r,0,7); X.fill();
+  // faint outline so it reads on black
+  X.strokeStyle='#2a3020'; X.lineWidth=1.5; X.stroke();
+  // two tiny eyes facing move dir
+  const ex=player.face.x*3, ey=player.face.y*3;
+  X.fillStyle='#c8d0b0';
+  X.fillRect(px+ex-3,py+ey-2,2,2); X.fillRect(px+ex+1,py+ey-2,2,2);
+
+  // ---------- DARKNESS / lighting mask ----------
+  // draw a black overlay everywhere, then punch light holes with 'destination-out'
+  X.save();
+  X.globalCompositeOperation='source-over';
+  const dark=X.createRadialGradient(px,py,0,px,py,1);
+  // build darkness layer
+  X.fillStyle='rgba(4,5,10,0.80)';
+  X.fillRect(0,0,W,H);
+  X.globalCompositeOperation='destination-out';
+  // player vision
+  const visR = 120 + flash*70 + (player.atkT>0?20:0);
+  let pg=X.createRadialGradient(px,py,6,px,py,visR);
+  pg.addColorStop(0,'rgba(0,0,0,1)');
+  pg.addColorStop(0.6,'rgba(0,0,0,0.7)');
+  pg.addColorStop(1,'rgba(0,0,0,0)');
+  X.fillStyle=pg; X.beginPath(); X.arc(px,py,visR,0,7); X.fill();
+  // torch light holes
+  for(const t of torches){
+    const tx=t.x+ox,ty=t.y+oy, tr=TILE*2.6*(0.9+Math.sin(performance.now()/90+t.x)*0.1);
+    let tg=X.createRadialGradient(tx,ty,4,tx,ty,tr);
+    tg.addColorStop(0,'rgba(0,0,0,0.95)');
+    tg.addColorStop(1,'rgba(0,0,0,0)');
+    X.fillStyle=tg; X.beginPath(); X.arc(tx,ty,tr,0,7); X.fill();
+  }
+  X.restore();
+
+  // hurt flash (red)
+  if(player && player.hurtT>0.35){
+    X.fillStyle='rgba(120,10,10,'+((player.hurtT-0.35)*1.5)+')'; X.fillRect(0,0,W,H);
+  }
+  // low sanity — creeping red vignette + whispers of static
+  if(player && player.san<35){
+    const s=(35-player.san)/35;
+    X.fillStyle='rgba(90,0,0,'+(s*0.25)+')'; X.fillRect(0,0,W,H);
+    for(let i=0;i<s*40;i++){X.fillStyle='rgba(160,140,140,'+rnd(0.02,0.12)+')';X.fillRect(rnd(0,W),rnd(0,H),2,2);}
+  }
+}
+
+function updateHUD(){
+  document.getElementById('hp').style.width=Math.max(0,player.hp/player.mhp*100)+'%';
+  document.getElementById('san').style.width=Math.max(0,player.san/player.msan*100)+'%';
+  document.getElementById('stats').textContent=
+    ' LVL '+player.lvl+'  DEPTH '+(floor+1)+'  XP '+player.xp+'/'+player.next+'  ✦'+player.kills;
+}
+
+// ---------- boot ----------
+function begin(){
+  floor=0; player=null;
+  startFloor();
+  document.getElementById('title').style.opacity=0;
+  setTimeout(()=>document.getElementById('title').style.display='none',800);
+  document.getElementById('dead').style.display='none';
+  gameOn=true;
+}
+document.getElementById('start').onclick=begin;
+document.getElementById('restart').onclick=()=>{document.getElementById('title').style.display='none';begin();};
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

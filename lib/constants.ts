@@ -20,14 +20,12 @@ export const PENALTY_HP = 12; // hp lost when a daily quest is missed / focus fa
 export const PENALTY_XP = 15; // xp lost on missed daily
 export const FOCUS_FAIL_HP = 10; // hp lost when the spikes catch you mid-session
 
-/** Flag checkpoints (in minutes) inside the idle runner. */
-export const FLAG_MINUTES = [10, 20, 25];
 /** Fractions of the track where the runner's flags sit (thirds + finish). */
 export const FLAG_FRACTIONS = [1 / 3, 2 / 3, 1];
-/** Micro gold reward earned when reaching a flag in time. */
+/** Gold earned each time the hero reaches a flag. */
 export const FLAG_GOLD = 5;
-/** HP lost when the hero misses a flag's deadline (spikes reach it first). */
-export const FLAG_PENALTY_HP = 6;
+/** HP restored each time the hero reaches a flag — the runner only ever helps. */
+export const FLAG_HEAL_HP = 3;
 
 // ---- GTD metadata ---------------------------------------------------------
 

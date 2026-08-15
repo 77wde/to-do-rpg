@@ -29,7 +29,7 @@ export type Action =
   | { type: "deleteQuest"; questId: string }
   | { type: "moveQuest"; questId: string; category: GtdCategory }
   | { type: "focusFail"; questTitle: string }
-  | { type: "hpPenalty"; hp: number; text: string }
+  | { type: "flagReward"; gold: number; hp: number; text: string }
   | { type: "grantGold"; gold: number; why: string }
   | { type: "buy"; item: ShopItem }
   | { type: "useItem"; itemId: string }
@@ -64,8 +64,13 @@ export function reducer(state: GameState | null, action: Action): GameState | nu
       return moveQuest(state, action.questId, action.category);
     case "focusFail":
       return focusFailed(state, action.questTitle);
-    case "hpPenalty":
-      return pushLog({ ...state, player: changeHp(state.player, -action.hp) }, "focusFail", action.text);
+    case "flagReward": {
+      const player = changeHp(
+        { ...state.player, gold: state.player.gold + action.gold },
+        action.hp,
+      );
+      return pushLog({ ...state, player }, "reward", action.text);
+    }
     case "grantGold":
       return grantGold(state, action.gold, action.why);
     case "dailyReset":

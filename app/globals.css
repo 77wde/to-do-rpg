@@ -347,11 +347,6 @@ a {
 .focus-hero {
   z-index: 3;
 }
-.focus-spikes {
-  z-index: 2;
-  font-size: 24px;
-  letter-spacing: -6px;
-}
 .focus-hero-glyph {
   font-size: 34px;
   display: inline-block;

@@ -65,8 +65,8 @@ interface StoreCtx {
   deleteQuest: (id: string) => void;
   moveQuest: (id: string, category: GtdCategory) => void;
   focusFail: (questTitle: string) => void;
-  /** Missed a runner flag deadline — small HP penalty, session continues. */
-  flagMiss: (hp: number, text: string) => void;
+  /** Reached a runner flag — grants gold and a little HP. */
+  flagReward: (gold: number, hp: number, text: string) => void;
   grantGold: (gold: number, why: string) => void;
   buy: (item: ShopItem) => void;
   useItem: (id: string) => void;
@@ -170,9 +170,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: "focusFail", questTitle });
         toast({ glyph: "💥", text: `Focus failed · HP down`, tone: "bad" });
       },
-      flagMiss: (hp, text) => {
-        dispatch({ type: "hpPenalty", hp, text });
-        toast({ glyph: "🌵", text: `Missed a flag · HP -${hp}`, tone: "bad" });
+      flagReward: (gold, hp, text) => {
+        dispatch({ type: "flagReward", gold, hp, text });
+        toast({ glyph: "🚩", text: `Flag reached! +${gold} G · +${hp} HP`, tone: "reward" });
       },
       grantGold: (gold, why) => {
         dispatch({ type: "grantGold", gold, why });
