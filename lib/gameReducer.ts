@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — the reducer.
+// TO DO BUG RPG — the reducer.
 //
 // Every mutation the UI can trigger, expressed as a transition over GameState.
 // The rules themselves live in lib/game.ts; this only routes actions to them

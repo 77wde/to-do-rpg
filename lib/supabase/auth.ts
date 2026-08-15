@@ -61,6 +61,65 @@ export async function signInWithEmail(
   return { error: null };
 }
 
+/**
+ * Hands off to GitHub. On success Supabase sends the browser back to the same
+ * confirm route the email links use, with a `?code=` to exchange — and unlike
+ * a mailed link, an OAuth round trip always ends in the browser that started
+ * it, so the PKCE verifier is guaranteed to be there.
+ *
+ * Returns only on failure: the success path is a full-page redirect.
+ */
+export async function signInWithGitHub(): Promise<AuthResult> {
+  const supabase = createClient();
+  if (!supabase) return { error: NOT_CONFIGURED };
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "github",
+    options: {
+      redirectTo: `${window.location.origin}/auth/confirm?next=/play`,
+    },
+  });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+/**
+ * Sends the "reset your password" mail. The link lands on the same confirm
+ * route as sign-up — it exchanges the token for a session — and then continues
+ * to the page that takes the new password.
+ *
+ * The result never says whether the address exists: answering that would turn
+ * this form into a way to enumerate registered users.
+ */
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
+  const supabase = createClient();
+  if (!supabase) return { error: NOT_CONFIGURED };
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/confirm?next=/auth/new-password`,
+  });
+  if (!error) return { error: null };
+
+  // A per-address verdict is exactly what an enumeration attempt is fishing
+  // for, so 401/403/404 are swallowed and the screen looks the same whether or
+  // not the account exists. Everything else — a bad address, the hourly mail
+  // cap, the service being down — says nothing about this address and is
+  // worth telling the user about.
+  const status = error.status ?? 0;
+  const identifiesTheUser = status === 401 || status === 403 || status === 404;
+  return { error: identifiesTheUser ? null : error.message };
+}
+
+/** Sets a new password for the session the recovery link established. */
+export async function updatePassword(password: string): Promise<AuthResult> {
+  const supabase = createClient();
+  if (!supabase) return { error: NOT_CONFIGURED };
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 export async function signOut() {
   const supabase = createClient();
   if (!supabase) return;
@@ -73,4 +132,29 @@ export async function getUserId(): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
+}
+
+export type SessionCheck =
+  | { status: "signed-in"; userId: string }
+  | { status: "signed-out" }
+  /** The auth server could not be reached — this is not "no session". */
+  | { status: "unknown" };
+
+/**
+ * Like getUserId, but keeps "nobody is signed in" apart from "we could not
+ * ask". A screen that treats a dropped connection as a missing session tells
+ * the user their link expired when it did not.
+ */
+export async function checkSession(): Promise<SessionCheck> {
+  const supabase = createClient();
+  if (!supabase) return { status: "signed-out" };
+
+  const { data, error } = await supabase.auth.getUser();
+  if (data.user) return { status: "signed-in", userId: data.user.id };
+  // A missing session is reported as an error too, so the status separates
+  // them: 4xx means the answer is "no session", anything else means we failed
+  // to get an answer at all.
+  const status = error?.status ?? 0;
+  if (error && (status === 0 || status >= 500)) return { status: "unknown" };
+  return { status: "signed-out" };
 }

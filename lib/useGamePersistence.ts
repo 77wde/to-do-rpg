@@ -1,6 +1,6 @@
 "use client";
 // ============================================================================
-// QuestLog — where the save lives.
+// TO DO BUG RPG — where the save lives.
 //
 // Two modes behind one surface: without Supabase keys the save is a
 // localStorage blob, with them it is rows owned by the signed-in user. The

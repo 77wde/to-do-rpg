@@ -2,14 +2,26 @@
 import { useRef, useState } from "react";
 import {
   MIN_PASSWORD_LENGTH,
+  sendPasswordReset,
   signInWithEmail,
+  signInWithGitHub,
   signUpWithEmail,
 } from "@/lib/supabase/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Mode = "signin" | "signup";
+/** lucide-react dropped its brand icons, so the mark is inlined. */
+function GitHubMark() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="currentColor" aria-hidden>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+    </svg>
+  );
+}
+
+/** "reset" asks for the address only and mails a recovery link. */
+type Mode = "signin" | "signup" | "reset";
 
 /**
  * Supabase messages are terse and developer-facing. Rewrite the ones players
@@ -24,7 +36,10 @@ function friendlyError(raw: string): string {
     return "Confirm your email first — check your inbox for the link.";
   }
   if (m.includes("email rate limit") || m.includes("rate limit")) {
-    return "Too many attempts. Please wait a moment and try again.";
+    // Deliberately not "too many attempts": the cap is on mail the project can
+    // send per hour, so it fires even on a first try and blaming the user for
+    // retrying sends them off to keep pressing the button.
+    return "Our mail system is having trouble right now. Please try again in an hour.";
   }
   return raw;
 }
@@ -39,6 +54,7 @@ export default function AuthForm({
   setBusy,
   initialEmail = "",
   onEmailConfirmationSent,
+  onResetLinkSent,
 }: {
   /** True while the store is still loading the save after a successful sign-in. */
   busy: boolean;
@@ -49,6 +65,8 @@ export default function AuthForm({
    */
   initialEmail?: string;
   onEmailConfirmationSent: (email: string) => void;
+  /** The recovery mail is on its way; the caller shows the notice. */
+  onResetLinkSent: (email: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState(initialEmail);
@@ -73,9 +91,32 @@ export default function AuthForm({
     setPassword("");
   }
 
+  async function startGitHub() {
+    setError(null);
+    setBusy(true);
+    const result = await signInWithGitHub();
+    // Success never gets here — the browser has already left for GitHub.
+    if (result.error) {
+      setBusy(false);
+      showError(friendlyError(result.error));
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (mode === "reset") {
+      setBusy(true);
+      const result = await sendPasswordReset(email.trim());
+      setBusy(false);
+      if (result.error) {
+        showError(friendlyError(result.error));
+        return;
+      }
+      onResetLinkSent(email.trim());
+      return;
+    }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
       showError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
@@ -108,21 +149,53 @@ export default function AuthForm({
 
   return (
     <form onSubmit={submit} className="flex w-full flex-col gap-4">
-      <div className="flex gap-2">
-        {(["signin", "signup"] as const).map((m) => (
+      {/* Recovery is a detour, not a third tab: showing the pair with neither
+          one selected reads as a broken toggle. */}
+      {mode === "reset" ? (
+        <p className="font-pixel text-center text-xs tracking-widest">RESET PASSWORD</p>
+      ) : (
+        <div className="flex gap-2">
+          {(["signin", "signup"] as const).map((m) => (
+            <Button
+              key={m}
+              type="button"
+              variant={mode === m ? "secondary" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => switchMode(m)}
+              aria-pressed={mode === m}
+            >
+              {m === "signin" ? "Log in" : "Sign up"}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* GitHub first: it is one tap versus two fields, and it sidesteps the
+          password entirely. Hidden during recovery, which is about a password
+          this account may not even have. */}
+      {mode !== "reset" && (
+        <>
           <Button
-            key={m}
             type="button"
-            variant={mode === m ? "secondary" : "ghost"}
-            size="sm"
-            className="flex-1"
-            onClick={() => switchMode(m)}
-            aria-pressed={mode === m}
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled={busy}
+            onClick={startGitHub}
           >
-            {m === "signin" ? "Log in" : "Sign up"}
+            <GitHubMark />
+            Continue with GitHub
           </Button>
-        ))}
-      </div>
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="h-[3px] flex-1 bg-foreground" />
+            <span className="font-pixel text-[9px] tracking-widest text-muted-foreground">
+              OR
+            </span>
+            <span className="h-[3px] flex-1 bg-foreground" />
+          </div>
+        </>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="email" className="font-pixel text-[10px] tracking-widest">
@@ -138,35 +211,55 @@ export default function AuthForm({
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-2">
-          <Label htmlFor="password" className="font-pixel text-[10px] tracking-widest">
-            PASSWORD
-          </Label>
-          {/* Sits on the label row so the hint never pushes the submit button
-              down when it appears. */}
-          {mode === "signup" && !error && (
-            <span className="text-[10px] text-muted-foreground">
-              At least {MIN_PASSWORD_LENGTH} characters
-            </span>
-          )}
+      {/* Recovery only needs the address — there is no password to give yet. */}
+      {mode !== "reset" && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="password" className="font-pixel text-[10px] tracking-widest">
+              PASSWORD
+            </Label>
+            {/* Sits on the label row so the hint never pushes the submit button
+                down when it appears. */}
+            {mode === "signup" && !error && (
+              <span className="text-[10px] text-muted-foreground">
+                At least {MIN_PASSWORD_LENGTH} characters
+              </span>
+            )}
+            {mode === "signin" && (
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="h-auto px-0"
+                onClick={() => switchMode("reset")}
+              >
+                Forgot?
+              </Button>
+            )}
+          </div>
+          <Input
+            id="password"
+            ref={passwordRef}
+            type="password"
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            aria-invalid={error ? true : undefined}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              // Typing means they've seen it — clear the flagged state.
+              if (error) setError(null);
+            }}
+          />
         </div>
-        <Input
-          id="password"
-          ref={passwordRef}
-          type="password"
-          required
-          minLength={MIN_PASSWORD_LENGTH}
-          autoComplete={mode === "signup" ? "new-password" : "current-password"}
-          aria-invalid={error ? true : undefined}
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            // Typing means they've seen it — clear the flagged state.
-            if (error) setError(null);
-          }}
-        />
-      </div>
+      )}
+
+      {mode === "reset" && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          We&apos;ll email you a link that lets you set a new password.
+        </p>
+      )}
 
       {/* Above the button, not below: the button is what the user just tapped,
           so anything under it can sit past the fold. */}
@@ -180,8 +273,26 @@ export default function AuthForm({
       )}
 
       <Button type="submit" size="lg" disabled={busy} className="w-full">
-        {busy ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
+        {busy
+          ? "Please wait..."
+          : mode === "signup"
+            ? "Create account"
+            : mode === "reset"
+              ? "Send reset link"
+              : "Log in"}
       </Button>
+
+      {mode === "reset" && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={() => switchMode("signin")}
+        >
+          Back to log in
+        </Button>
+      )}
     </form>
   );
 }

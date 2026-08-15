@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — the Postgres ↔ domain boundary.
+// TO DO BUG RPG — the Postgres ↔ domain boundary.
 //
 // Row shapes, the mapping in both directions, and the equality checks the sync
 // pass uses to decide what actually changed. Hand-written for now;

@@ -32,7 +32,7 @@ const jbMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QuestLog — Turn tasks into quests",
+  title: "TO DO BUG RPG — Turn tasks into quests",
   description:
     "An RPG-based to-do list for easily distracted, avoidant minds. Complete tasks to earn XP and gold, and level up.",
 };

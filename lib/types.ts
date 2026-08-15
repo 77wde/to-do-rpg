@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — domain types
+// TO DO BUG RPG — domain types
 // ============================================================================
 
 /** GTD category. Drives map placement and category color. */

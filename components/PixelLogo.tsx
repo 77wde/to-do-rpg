@@ -16,7 +16,7 @@ export default function PixelLogo({
       src="/pixel-logo.png"
       width={size}
       height={size}
-      alt="QuestLog 로고"
+      alt="TO DO BUG RPG 로고"
       className={className}
       style={{ imageRendering: "pixelated", display: "block" }}
       draggable={false}
