@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — pure game logic (no React, easy to reason about/test)
+// TO DO BUG RPG — pure game logic (no React, easy to reason about/test)
 // ============================================================================
 import {
   COLLECTIBLES,

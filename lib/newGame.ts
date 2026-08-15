@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — the starting save.
+// TO DO BUG RPG — the starting save.
 //
 // Kept apart from the rules in lib/game.ts: this is content (what a new player
 // begins with), and it changes for product reasons rather than logic ones.

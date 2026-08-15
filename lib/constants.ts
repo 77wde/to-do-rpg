@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — game constants & catalogs
+// TO DO BUG RPG — game constants & catalogs
 // ============================================================================
 import type { Collectible, GtdCategory, ShopItem } from "./types";
 

@@ -1,5 +1,5 @@
 // ============================================================================
-// QuestLog — calendar-day helpers.
+// TO DO BUG RPG — calendar-day helpers.
 //
 // The app reasons about days, not instants: a daily resets on the player's own
 // midnight and a quest is "due today" in their own timezone.

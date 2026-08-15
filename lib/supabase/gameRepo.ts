@@ -1,6 +1,6 @@
 "use client";
 // ============================================================================
-// QuestLog — Supabase persistence for the game state.
+// TO DO BUG RPG — Supabase persistence for the game state.
 //
 // lib/game.ts stays untouched: it keeps producing whole GameState values.
 // This module diffs consecutive states and writes only what changed, so a

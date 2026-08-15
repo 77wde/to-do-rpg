@@ -1,6 +1,6 @@
 "use client";
 // ============================================================================
-// QuestLog — client store: React context over the pure game logic.
+// TO DO BUG RPG — client store: React context over the pure game logic.
 //
 // Three pieces meet here and nothing else: the reducer (lib/gameReducer.ts),
 // the save (lib/useGamePersistence.ts), and the transient reward popups.
