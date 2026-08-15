@@ -22,8 +22,12 @@ export const FOCUS_FAIL_HP = 10; // hp lost when the spikes catch you mid-sessio
 
 /** Flag checkpoints (in minutes) inside the idle runner. */
 export const FLAG_MINUTES = [10, 20, 25];
-/** Micro gold reward earned when passing each flag. */
+/** Fractions of the track where the runner's flags sit (thirds + finish). */
+export const FLAG_FRACTIONS = [1 / 3, 2 / 3, 1];
+/** Micro gold reward earned when reaching a flag in time. */
 export const FLAG_GOLD = 5;
+/** HP lost when the hero misses a flag's deadline (spikes reach it first). */
+export const FLAG_PENALTY_HP = 6;
 
 // ---- GTD metadata ---------------------------------------------------------
 

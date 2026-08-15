@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore, shopItem } from "@/lib/store";
-import { FLAG_GOLD, FLAG_MINUTES } from "@/lib/constants";
+import { FLAG_FRACTIONS, FLAG_GOLD, FLAG_PENALTY_HP } from "@/lib/constants";
 import type { Quest } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ function fmt(sec: number) {
 }
 
 export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose: () => void }) {
-  const { state, completeQuest, focusFail, grantGold } = useStore();
+  const { state, completeQuest, flagMiss, grantGold } = useStore();
   const skin = shopItem(state?.player.equippedSkin ?? "");
   const hasCat = state?.player.owned.includes("comp-cat");
 
@@ -28,15 +28,20 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
   const totalSec = quest.estimateMin * 60;
   const speed = fast ? totalSec / 48 : 1;
 
-  // Flags: the classic 10/20/25 checkpoints that fall inside this session,
-  // plus a finish flag at the end.
-  const flags = useMemo(() => {
-    const inner = FLAG_MINUTES.filter((m) => m < quest.estimateMin).map((m) => ({
-      frac: m / quest.estimateMin,
-      label: `${m}m`,
-    }));
-    return [...inner, { frac: 1, label: "Done" }];
-  }, [quest.estimateMin]);
+  // Flags sit at even fractions of the session (thirds + finish), each labelled
+  // with the minute it falls on. Reach one in time → gold; miss it → HP.
+  const flags = useMemo(
+    () =>
+      FLAG_FRACTIONS.map((frac, i) => ({
+        frac,
+        finish: i === FLAG_FRACTIONS.length - 1,
+        label:
+          i === FLAG_FRACTIONS.length - 1
+            ? "Done"
+            : `${Math.round(frac * quest.estimateMin)}m`,
+      })),
+    [quest.estimateMin],
+  );
 
   const [phase, setPhase] = useState<Phase>("running");
   const [heroFrac, setHeroFrac] = useState(0);
@@ -53,10 +58,10 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
     (win: boolean) => {
       if (phaseRef.current === "won" || phaseRef.current === "lost") return;
       setPhase(win ? "won" : "lost");
+      // HP for a loss is already taken flag-by-flag, so only the win pays out.
       if (win) completeQuest(quest.id);
-      else focusFail(quest.title);
     },
-    [completeQuest, focusFail, quest.id, quest.title],
+    [completeQuest, quest.id],
   );
 
   // animation loop
@@ -77,22 +82,27 @@ export default function FocusOverlay({ quest, onClose }: { quest: Quest; onClose
         setHeroFrac(hf);
         setSpikeFrac(sf);
 
-        // flag rewards
+        // Resolve each flag once, in order. Reaching it before the spikes pays
+        // gold; letting the spikes get there first costs a little HP. The finish
+        // flag ends the session — win if the hero reaches it, loss if not.
         for (let i = 0; i < flags.length; i++) {
-          if (!passedFlags.current.has(i) && hf >= flags[i].frac && flags[i].frac < 1) {
+          if (passedFlags.current.has(i)) continue;
+          const f = flags[i];
+          if (hf >= f.frac) {
             passedFlags.current.add(i);
-            grantGold(FLAG_GOLD, `🚩 Passed the ${flags[i].label} flag! +${FLAG_GOLD} G`);
+            if (f.finish) {
+              finish(true);
+              return;
+            }
+            grantGold(FLAG_GOLD, `🚩 Reached the ${f.label} flag in time! +${FLAG_GOLD} G`);
+          } else if (sf >= f.frac) {
+            passedFlags.current.add(i);
+            flagMiss(FLAG_PENALTY_HP, `🌵 Missed the ${f.label} flag! HP -${FLAG_PENALTY_HP}`);
+            if (f.finish) {
+              finish(false);
+              return;
+            }
           }
-        }
-
-        if (hf >= 1) {
-          finish(true);
-          return;
-        }
-        if (sf >= hf) {
-          setSpikeFrac(hf);
-          finish(false);
-          return;
         }
       }
       raf.current = requestAnimationFrame(tick);
