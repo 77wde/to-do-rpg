@@ -62,6 +62,28 @@ export async function signInWithEmail(
 }
 
 /**
+ * Hands off to GitHub. On success Supabase sends the browser back to the same
+ * confirm route the email links use, with a `?code=` to exchange — and unlike
+ * a mailed link, an OAuth round trip always ends in the browser that started
+ * it, so the PKCE verifier is guaranteed to be there.
+ *
+ * Returns only on failure: the success path is a full-page redirect.
+ */
+export async function signInWithGitHub(): Promise<AuthResult> {
+  const supabase = createClient();
+  if (!supabase) return { error: NOT_CONFIGURED };
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "github",
+    options: {
+      redirectTo: `${window.location.origin}/auth/confirm?next=/play`,
+    },
+  });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+/**
  * Sends the "reset your password" mail. The link lands on the same confirm
  * route as sign-up — it exchanges the token for a session — and then continues
  * to the page that takes the new password.
