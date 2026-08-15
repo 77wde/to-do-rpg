@@ -18,13 +18,23 @@ function safeNext(raw: string | null): string {
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = safeNext(searchParams.get("next"));
 
-  if (tokenHash && type) {
-    const supabase = await createClient();
-    if (supabase) {
+  const supabase = await createClient();
+  if (supabase) {
+    // Two shapes arrive here. @supabase/ssr signs requests with PKCE, so a
+    // link produced by signUp() or resetPasswordForEmail() comes back as
+    // `?code=` and is exchanged against the verifier cookie the browser
+    // stored. A mail template still using the default {{ .ConfirmationURL }}
+    // instead delivers `token_hash` + `type`. Handling only one of them breaks
+    // half the links.
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) return NextResponse.redirect(`${origin}${next}`);
+    } else if (tokenHash && type) {
       const { error } = await supabase.auth.verifyOtp({
         type,
         token_hash: tokenHash,
