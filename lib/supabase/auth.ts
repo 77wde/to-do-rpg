@@ -76,10 +76,16 @@ export async function sendPasswordReset(email: string): Promise<AuthResult> {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/auth/confirm?next=/auth/new-password`,
   });
-  // Rate limits and malformed addresses are worth surfacing; a missing account
-  // is not an error Supabase reports here.
-  if (error) return { error: error.message };
-  return { error: null };
+  if (!error) return { error: null };
+
+  // A per-address verdict is exactly what an enumeration attempt is fishing
+  // for, so 401/403/404 are swallowed and the screen looks the same whether or
+  // not the account exists. Everything else — a bad address, the hourly mail
+  // cap, the service being down — says nothing about this address and is
+  // worth telling the user about.
+  const status = error.status ?? 0;
+  const identifiesTheUser = status === 401 || status === 403 || status === 404;
+  return { error: identifiesTheUser ? null : error.message };
 }
 
 /** Sets a new password for the session the recovery link established. */
@@ -104,4 +110,29 @@ export async function getUserId(): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
+}
+
+export type SessionCheck =
+  | { status: "signed-in"; userId: string }
+  | { status: "signed-out" }
+  /** The auth server could not be reached — this is not "no session". */
+  | { status: "unknown" };
+
+/**
+ * Like getUserId, but keeps "nobody is signed in" apart from "we could not
+ * ask". A screen that treats a dropped connection as a missing session tells
+ * the user their link expired when it did not.
+ */
+export async function checkSession(): Promise<SessionCheck> {
+  const supabase = createClient();
+  if (!supabase) return { status: "signed-out" };
+
+  const { data, error } = await supabase.auth.getUser();
+  if (data.user) return { status: "signed-in", userId: data.user.id };
+  // A missing session is reported as an error too, so the status separates
+  // them: 4xx means the answer is "no session", anything else means we failed
+  // to get an answer at all.
+  const status = error?.status ?? 0;
+  if (error && (status === 0 || status >= 500)) return { status: "unknown" };
+  return { status: "signed-out" };
 }

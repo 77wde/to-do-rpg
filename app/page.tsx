@@ -125,6 +125,11 @@ export default function StartPage() {
           <Button size="lg" className="w-full" onClick={enterGame}>
             Login
           </Button>
+        ) : !ready ? (
+          // Signed in, save still on the way — after tapping "Try again" the
+          // store clears loadFailed and goes back to loading, and without this
+          // the screen would flash the login form at someone already logged in.
+          <p className="text-sm text-muted-foreground">Loading your adventure…</p>
         ) : (
           <AuthForm
             busy={busy}

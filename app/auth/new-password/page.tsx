@@ -1,7 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MIN_PASSWORD_LENGTH, getUserId, updatePassword } from "@/lib/supabase/auth";
+import {
+  MIN_PASSWORD_LENGTH,
+  checkSession,
+  updatePassword,
+  type SessionCheck,
+} from "@/lib/supabase/auth";
 import PixelLogo from "@/components/PixelLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +19,9 @@ import { Label } from "@/components/ui/label";
  */
 export default function NewPasswordPage() {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
+  const [session, setSession] = useState<SessionCheck | null>(null);
+  /** Bumping this re-runs the session check. */
+  const [checkAttempt, setCheckAttempt] = useState(0);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,17 +31,17 @@ export default function NewPasswordPage() {
 
   // No session means the link was never opened, or it has already expired —
   // either way there is nothing to update, so say so instead of failing later.
+  // A failed check is kept separate: that one is worth retrying.
   useEffect(() => {
     let alive = true;
-    getUserId().then((id) => {
-      if (!alive) return;
-      setAuthorized(!!id);
-      setChecking(false);
+    setSession(null);
+    checkSession().then((result) => {
+      if (alive) setSession(result);
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [checkAttempt]);
 
   function showError(message: string) {
     setError(message);
@@ -72,9 +78,24 @@ export default function NewPasswordPage() {
       <div className="float-in flex w-full flex-col items-center gap-8">
         <PixelLogo size={180} />
 
-        {checking ? (
+        {!session ? (
           <p className="text-sm text-muted-foreground">Checking your link…</p>
-        ) : !authorized ? (
+        ) : session.status === "unknown" ? (
+          <div className="flex w-full flex-col items-center gap-5 text-center">
+            <p className="font-pixel text-xs tracking-widest">COULD NOT CHECK</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              We couldn&apos;t reach the server to check your link. Your link is
+              probably still fine — try again.
+            </p>
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => setCheckAttempt((n) => n + 1)}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : session.status === "signed-out" ? (
           <div className="flex w-full flex-col items-center gap-5 text-center">
             <p className="font-pixel text-xs tracking-widest">LINK EXPIRED</p>
             <p className="text-sm leading-relaxed text-muted-foreground">
