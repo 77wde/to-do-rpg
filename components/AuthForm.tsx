@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import {
   MIN_PASSWORD_LENGTH,
+  sendPasswordReset,
   signInWithEmail,
   signUpWithEmail,
 } from "@/lib/supabase/auth";
@@ -9,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Mode = "signin" | "signup";
+/** "reset" asks for the address only and mails a recovery link. */
+type Mode = "signin" | "signup" | "reset";
 
 /**
  * Supabase messages are terse and developer-facing. Rewrite the ones players
@@ -39,6 +41,7 @@ export default function AuthForm({
   setBusy,
   initialEmail = "",
   onEmailConfirmationSent,
+  onResetLinkSent,
 }: {
   /** True while the store is still loading the save after a successful sign-in. */
   busy: boolean;
@@ -49,6 +52,8 @@ export default function AuthForm({
    */
   initialEmail?: string;
   onEmailConfirmationSent: (email: string) => void;
+  /** The recovery mail is on its way; the caller shows the notice. */
+  onResetLinkSent: (email: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState(initialEmail);
@@ -76,6 +81,18 @@ export default function AuthForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (mode === "reset") {
+      setBusy(true);
+      const result = await sendPasswordReset(email.trim());
+      setBusy(false);
+      if (result.error) {
+        showError(friendlyError(result.error));
+        return;
+      }
+      onResetLinkSent(email.trim());
+      return;
+    }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
       showError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
@@ -108,21 +125,27 @@ export default function AuthForm({
 
   return (
     <form onSubmit={submit} className="flex w-full flex-col gap-4">
-      <div className="flex gap-2">
-        {(["signin", "signup"] as const).map((m) => (
-          <Button
-            key={m}
-            type="button"
-            variant={mode === m ? "secondary" : "ghost"}
-            size="sm"
-            className="flex-1"
-            onClick={() => switchMode(m)}
-            aria-pressed={mode === m}
-          >
-            {m === "signin" ? "Log in" : "Sign up"}
-          </Button>
-        ))}
-      </div>
+      {/* Recovery is a detour, not a third tab: showing the pair with neither
+          one selected reads as a broken toggle. */}
+      {mode === "reset" ? (
+        <p className="font-pixel text-center text-xs tracking-widest">RESET PASSWORD</p>
+      ) : (
+        <div className="flex gap-2">
+          {(["signin", "signup"] as const).map((m) => (
+            <Button
+              key={m}
+              type="button"
+              variant={mode === m ? "secondary" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => switchMode(m)}
+              aria-pressed={mode === m}
+            >
+              {m === "signin" ? "Log in" : "Sign up"}
+            </Button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="email" className="font-pixel text-[10px] tracking-widest">
@@ -138,35 +161,55 @@ export default function AuthForm({
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-2">
-          <Label htmlFor="password" className="font-pixel text-[10px] tracking-widest">
-            PASSWORD
-          </Label>
-          {/* Sits on the label row so the hint never pushes the submit button
-              down when it appears. */}
-          {mode === "signup" && !error && (
-            <span className="text-[10px] text-muted-foreground">
-              At least {MIN_PASSWORD_LENGTH} characters
-            </span>
-          )}
+      {/* Recovery only needs the address — there is no password to give yet. */}
+      {mode !== "reset" && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="password" className="font-pixel text-[10px] tracking-widest">
+              PASSWORD
+            </Label>
+            {/* Sits on the label row so the hint never pushes the submit button
+                down when it appears. */}
+            {mode === "signup" && !error && (
+              <span className="text-[10px] text-muted-foreground">
+                At least {MIN_PASSWORD_LENGTH} characters
+              </span>
+            )}
+            {mode === "signin" && (
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="h-auto px-0"
+                onClick={() => switchMode("reset")}
+              >
+                Forgot?
+              </Button>
+            )}
+          </div>
+          <Input
+            id="password"
+            ref={passwordRef}
+            type="password"
+            required
+            minLength={MIN_PASSWORD_LENGTH}
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            aria-invalid={error ? true : undefined}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              // Typing means they've seen it — clear the flagged state.
+              if (error) setError(null);
+            }}
+          />
         </div>
-        <Input
-          id="password"
-          ref={passwordRef}
-          type="password"
-          required
-          minLength={MIN_PASSWORD_LENGTH}
-          autoComplete={mode === "signup" ? "new-password" : "current-password"}
-          aria-invalid={error ? true : undefined}
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            // Typing means they've seen it — clear the flagged state.
-            if (error) setError(null);
-          }}
-        />
-      </div>
+      )}
+
+      {mode === "reset" && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          We&apos;ll email you a link that lets you set a new password.
+        </p>
+      )}
 
       {/* Above the button, not below: the button is what the user just tapped,
           so anything under it can sit past the fold. */}
@@ -180,8 +223,26 @@ export default function AuthForm({
       )}
 
       <Button type="submit" size="lg" disabled={busy} className="w-full">
-        {busy ? "Please wait..." : mode === "signup" ? "Create account" : "Log in"}
+        {busy
+          ? "Please wait..."
+          : mode === "signup"
+            ? "Create account"
+            : mode === "reset"
+              ? "Send reset link"
+              : "Log in"}
       </Button>
+
+      {mode === "reset" && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={() => switchMode("signin")}
+        >
+          Back to log in
+        </Button>
+      )}
     </form>
   );
 }

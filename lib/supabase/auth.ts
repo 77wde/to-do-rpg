@@ -61,6 +61,37 @@ export async function signInWithEmail(
   return { error: null };
 }
 
+/**
+ * Sends the "reset your password" mail. The link lands on the same confirm
+ * route as sign-up — it exchanges the token for a session — and then continues
+ * to the page that takes the new password.
+ *
+ * The result never says whether the address exists: answering that would turn
+ * this form into a way to enumerate registered users.
+ */
+export async function sendPasswordReset(email: string): Promise<AuthResult> {
+  const supabase = createClient();
+  if (!supabase) return { error: NOT_CONFIGURED };
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/confirm?next=/auth/new-password`,
+  });
+  // Rate limits and malformed addresses are worth surfacing; a missing account
+  // is not an error Supabase reports here.
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+/** Sets a new password for the session the recovery link established. */
+export async function updatePassword(password: string): Promise<AuthResult> {
+  const supabase = createClient();
+  if (!supabase) return { error: NOT_CONFIGURED };
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
 export async function signOut() {
   const supabase = createClient();
   if (!supabase) return;

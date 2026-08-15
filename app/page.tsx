@@ -20,8 +20,10 @@ export default function StartPage() {
     useStore();
 
   const [busy, setBusy] = useState(false);
-  /** Set after sign-up when the account still needs the emailed link. */
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  /** A mail is out and the user has to go read it — sign-up or password reset. */
+  const [sent, setSent] = useState<{ kind: "confirm" | "reset"; email: string } | null>(
+    null,
+  );
   /** Kept past `sentTo` so returning to the form does not blank the address. */
   const [lastEmail, setLastEmail] = useState("");
   /** Nickname entry is a second step, shown only for a brand-new adventure. */
@@ -100,15 +102,24 @@ export default function StartPage() {
             You&apos;re signed in, but your save didn&apos;t come through. This usually
             clears up on a retry.
           </Notice>
-        ) : sentTo ? (
+        ) : sent ? (
           <Notice
             title="CHECK YOUR INBOX"
             action="Back to login"
-            onAction={() => setSentTo(null)}
+            onAction={() => setSent(null)}
           >
-            We sent a confirmation link to{" "}
-            <strong className="text-foreground">{sentTo}</strong>. Open it to activate
-            your account, then come back and log in.
+            {sent.kind === "confirm" ? (
+              <>
+                We sent a confirmation link to{" "}
+                <strong className="text-foreground">{sent.email}</strong>. Open it to
+                activate your account, then come back and log in.
+              </>
+            ) : (
+              <>
+                If <strong className="text-foreground">{sent.email}</strong> has an
+                account, a reset link is on its way. Open it to choose a new password.
+              </>
+            )}
           </Notice>
         ) : !isSupabaseConfigured ? (
           <Button size="lg" className="w-full" onClick={enterGame}>
@@ -121,7 +132,11 @@ export default function StartPage() {
             initialEmail={lastEmail}
             onEmailConfirmationSent={(email) => {
               setLastEmail(email);
-              setSentTo(email);
+              setSent({ kind: "confirm", email });
+            }}
+            onResetLinkSent={(email) => {
+              setLastEmail(email);
+              setSent({ kind: "reset", email });
             }}
           />
         )}
