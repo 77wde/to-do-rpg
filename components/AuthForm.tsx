@@ -26,7 +26,10 @@ function friendlyError(raw: string): string {
     return "Confirm your email first — check your inbox for the link.";
   }
   if (m.includes("email rate limit") || m.includes("rate limit")) {
-    return "Too many attempts. Please wait a moment and try again.";
+    // Deliberately not "too many attempts": the cap is on mail the project can
+    // send per hour, so it fires even on a first try and blaming the user for
+    // retrying sends them off to keep pressing the button.
+    return "Our mail system is having trouble right now. Please try again in an hour.";
   }
   return raw;
 }
